@@ -1,4 +1,6 @@
 import math
+
+
 def dot(v,w):
     x,y,z = v
     X,Y,Z = w
@@ -35,7 +37,7 @@ def mid(v,w):
     X,Y,Z = w
     return (abs(X-x)/2+min(x,X), abs(Y-y)/2+min(y,Y), abs(Z-z)/2+min(z,Z))
 
-    # Given a line with coordinates 'start' and 'end' and the
+# Given a line with coordinates 'start' and 'end' and the
 # coordinates of a point 'pnt' the proc returns the shortest 
 # distance from pnt to the line and the coordinates of the 
 # nearest point on the line.
