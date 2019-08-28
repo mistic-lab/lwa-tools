@@ -56,8 +56,8 @@ def main(args):
 
     with h5py.File(args.input, 'r') as fi:
 
-        # fiPol0 = fiParent['pol0']
-        # fiPol1 = fiParent['pol1']
+        fiPol0 = fi['pol0']
+        fiPol1 = fi['pol1']
 
 
         with h5py.File(output_file,'w') as fo:
@@ -74,7 +74,9 @@ def main(args):
 
 
             # Creating output size
-            output_shape = (fi['pol0'].shape[0], fi['pol0'].shape[0], fi['pol0'].shape[1], fi['pol0'].shape[2])
+            tlen = len(fi['times'])
+            fft_size = len(fi['freqs'])
+            output_shape = (fi['pol0'].shape[0], fi['pol0'].shape[0], tlen, fft_size)
             print("-| Output ACM shape is: {}".format(output_shape))
 
             # Create a subdataset for each polarization
@@ -82,7 +84,25 @@ def main(args):
             foPol0_ACM = fo.create_dataset("pol0_ACM", output_shape, dtype=np.complex64)
             foPol1_ACM = fo.create_dataset("pol1_ACM", output_shape, dtype=np.complex64)
 
-            ACM = np.zeros((2, 2, tlen, fft_size), dtype=phys_chan_1.dtype)
+            for t in range(tlen):
+                print("pol0 {}/{}".format(t, tlen))
+                for k in range(fft_size):
+                    x_k = fiPol0[:,t,k]
+                    # x_k = np.array((phys_chan_1[t,k],phys_chan_2[t,k]))
+                    x_k = x_k.reshape(1,-1) # Cast to column vector
+                    x_k_h = x_k.conj().T
+                    foPol0_ACM[:, :, t, k] = x_k * x_k_h
+            
+            for t in range(tlen):
+                print("pol1 {}/{}".format(t, tlen))
+                for k in range(fft_size):
+                    x_k = fiPol1[:,t,k]
+                    # x_k = np.array((phys_chan_1[t,k],phys_chan_2[t,k]))
+                    x_k = x_k.reshape(1,-1) # Cast to column vector
+                    x_k_h = x_k.conj().T
+                    foPol1_ACM[:, :, t, k] = x_k * x_k_h
+
+
 
 
 
@@ -91,7 +111,7 @@ if __name__ == "__main__":
         description='Creates an ACM from integrated spectra.', 
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
         )
-    parser.add_argument('-i', '--input', type=str,
+    parser.add_argument('input', type=str,
                         help='input h5 file of time series')
     args = parser.parse_args()
     main(args)

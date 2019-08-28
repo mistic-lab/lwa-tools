@@ -11,7 +11,7 @@ import time
 import math
 
 def round_down(num, divisor):
-    return num - (num%divisor)
+    return int(num - (num%divisor))
 
 ############################# PFB #############################
 def quick_pfb(series, nfft, navg):
@@ -91,7 +91,7 @@ def main(args):
             # Creating output size
             tsLen = fiPol0.shape[1]
             print("-| Input time series length is {} samples".format(tsLen))
-            output_shape = (fiPol0.shape[0], round_down(tsLen,(args.nfft*args.navg))/(args.nfft*args.navg), args.nfft)
+            output_shape = (fiPol0.shape[0], int(round_down(tsLen,(args.nfft*args.navg))/(args.nfft*args.navg)), args.nfft)
             print("-| Number of output channels containing spectrograms is {}".format(output_shape[0]))
             print("-| Output spectrogram shape is {} frequency bins by {} time samples".format(output_shape[2], output_shape[1]))
 
@@ -100,11 +100,11 @@ def main(args):
             foPol0 = fo.create_dataset("pol0", output_shape, dtype=np.complex64)#, compression='lzf')
             foPol1 = fo.create_dataset("pol1", output_shape, dtype=np.complex64)#, compression='lzf')
 
-            times = np.linspace(0, output_shape[0]*args.nfft*args.navg/args.fs, output_shape[0], endpoint=False)+int(input_filename)
+            times = np.linspace(0, output_shape[1]*args.nfft*args.navg/args.fs, output_shape[1], endpoint=False)+int(input_filename)
             freqs = np.linspace(-args.fs/2, args.fs/2, args.nfft, endpoint=False)+args.fc
 
-            fo.create_dataset('times', (output_shape[0],), dtype="float64")[:] = times
-            fo.create_dataset("freqs", (args.nfft,), dtype="float32")[:] = freqs
+            fo.create_dataset('times', (len(times),), dtype="float64")[:] = times
+            fo.create_dataset("freqs", (len(freqs),), dtype="float32")[:] = freqs
 
             for i in range(len(fiPol0)):
                 foPol0[i] = quick_pfb(fiPol0[i],args.nfft, args.navg)

@@ -113,7 +113,9 @@ def show_waterfalls(arr, fc, fs, spec_index=0, title=''):
     fs : float
                 sampling rate
     spec_index : int
-                which index of the array to show the spectrum from
+                which index of the array to show the spectrum from (default: 0)
+    title : string
+                title for the plot (default: '')
     """
     
     fft_size = arr.shape[1]
