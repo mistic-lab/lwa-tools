@@ -83,7 +83,7 @@ def get_frequency_offset(fc, f1, fft_size, fs=100000, show_details=False):
 
 
 def get_frequency_bin(fc, f1, fft_size, fs=100000, show_details=False):
-    """Get's the frequency offset from the bin center for a signal
+    """Gets the bin number for some frequency.
 
     Parameters
     ----------

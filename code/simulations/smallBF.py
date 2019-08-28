@@ -87,7 +87,8 @@ def make_complex_sine(f, fs, t, phi=0, A=1):
                 phase offset in radians (default: 0)
     A : float
                 amplitude (default: 1)
-    Returns
+
+                Returns
     -------
     numpy array
         sampled sine wave
@@ -161,6 +162,119 @@ def show_waterfalls(arr, fc, fs, spec_index=0, title=''):
 
 
 
+############################# ADD NOISE BY SNR #############################
+def addAWGNbySNR(x, SNR):
+    """Adds additive white gaussian noise to a signal based on defined SNR.
+    https://stackoverflow.com/a/55406080/8844897
+
+    Parameters
+    ----------
+    x : array
+                signal to have noise added to it
+    SNR : float
+                desired signal to noise ratio
+
+    Returns
+    -------
+    numpy array
+        noisy signal
+    """
+    # Set a target SNR
+    target_snr_db = SNR
+    # Calculate signal power and convert to dB 
+    sig_avg_watts = np.mean(x**2)
+    sig_avg_db = 10 * np.log10(sig_avg_watts)
+    # Calculate noise according to [2] then convert to watts
+    noise_avg_db = sig_avg_db - target_snr_db
+    noise_avg_watts = 10 ** (noise_avg_db / 10)
+    # Generate an sample of white noise
+    mean_noise = 0
+    noise_volts = np.random.normal(mean_noise, np.sqrt(noise_avg_watts), len(x))
+    # Noise up the original signal
+    y_volts = x + noise_volts
+
+    return y_volts
+
+############################# PLOT 2 COMPLEX SIGNALS #############################
+def plot2complexSignals(x1, t1, x2, t2, title=''):
+
+    f, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
+    f.suptitle(title)
+
+    color='tab:red'
+    ax1.plot(t1, np.real(x1), color=color, label='Real', linestyle=':')
+    ax1.plot(t1, np.imag(x1), color=color, label='Imag.', linestyle='--')
+    ax1.set_ylabel('Mag.', color=color)
+    ax1.tick_params(axis='y', labelcolor=color)
+    ax2.plot(t2, np.real(x2), color=color, label='Real', linestyle=':')
+    ax2.plot(t2, np.imag(x2), color=color, label='Imag.', linestyle='--')
+    ax2.set_ylabel('Mag.', color=color)
+    ax2.tick_params(axis='y', labelcolor=color)
+    ax1.legend()
+    ax2.legend()
+
+    ax3 = ax1.twinx()
+    ax4 = ax2.twinx()
+
+    color='tab:blue'
+    ax3.plot(t1, np.angle(x1))
+    ax3.set_ylabel('Phase', color=color)
+    ax3.tick_params(axis='y', labelcolor=color)
+    # ax3.set_yticks([-3.14,0,3.14])
+    ax4.plot(t2, np.angle(x2))
+    ax4.set_ylabel('Phase', color=color)
+    ax4.tick_params(axis='y', labelcolor=color)
+    # ax4.set_yticks([-3.14,0,3.14])
+
+    ax2.set_xlabel('Time (s)')
+    ax1.set_title('x1')  
+    ax2.set_title('x2')  
+    plt.show()
+
+############################# GET BIN NUMBER #############################
+def get_frequency_bin(fc, f1, fft_size, fs=100000, show_details=False):
+    """Gets the bin number for some frequency.
+
+    Parameters
+    ----------
+    fc : float
+                center frequency in Hz
+    f1 : float
+                signal of interest in Hz
+    fft_size : int
+                size of the FFT used
+    fs : int
+                sampling frequency in Hz (default: 100000)
+    show_details: boolean
+                sanity check that prints out each line (default: False)
+
+    Returns
+    -------
+    int
+        bin containing f1
+    """
+
+    center_bin = fft_size/2
+    bin_size = fs/fft_size
+
+    hz_between_freqs = abs(f1-fc)
+
+    if hz_between_freqs < bin_size/2:
+        return center_bin
+
+    bins_between_freqs = hz_between_freqs/bin_size
+
+    bins_from_edge_of_fc = math.ceil(bins_between_freqs-0.5)
+
+    if f1 < fc:
+        frequency_bin_of_f1 = center_bin - bins_from_edge_of_fc
+    elif fc < f1:
+        frequency_bin_of_f1 = center_bin + bins_from_edge_of_fc
+    
+    return int(frequency_bin_of_f1)
+
+
+
 
 
 
@@ -171,66 +285,39 @@ def main(args):
     fft_size = args.nfft
     fc = args.fc
     fs = args.fs
-    f = args.f1
+    f1 = args.f1
     tend = args.time
     navg = args.navg
 
 
 
     ## Make IQ Streams
-    simple_f = f-fc
+    simple_f = f1-fc
     x1 = make_complex_sine(simple_f, fs, tend, A=10)
-    x2 = make_complex_sine(simple_f, fs, tend, phi=3.14, A=10)
-
-    # print("max(x1 phase)={}".format(np.amax(np.angle(x1))))
-    # print("min(x1 phase)={}".format(np.amin(np.angle(x1))))
-    # print("max(x2 phase)={}".format(np.amax(np.angle(x2))))
-    # print("min(x2 phase)={}".format(np.amin(np.angle(x2))))
-    
-    # print("x1 initial phase={}".format(np.angle(x1[0])))
-    # print("x2 initial phase={}".format(np.angle(x2[0])))
+    x2 = make_complex_sine(simple_f, fs, tend, phi=1.5, A=10)
 
     # # Plot inputs
-    # mul = 5 # how many periods to plot
-    # period = simple_f**-1
-    # seconds_to_plot = period*mul
-    # samples_per_period = math.ceil(period*fs)
-    # samples_to_plot = samples_per_period*mul
-    # t_arr = np.linspace(0,seconds_to_plot,samples_to_plot) # time in s
+    mul = 5 # how many periods to plot
+    period = simple_f**-1
+    samples_per_period = math.ceil(period*fs)
+    samples_to_plot = samples_per_period*mul
+    t_arr = np.linspace(0,tend, tend*fs)
 
-    # f, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
-    # f.suptitle('First {} periods'.format(mul))
+    title = 'First {} periods of plain input signals'.format(mul)
+    # plot2complexSignals(x1[:samples_to_plot], t_arr[:samples_to_plot], x2[:samples_to_plot], t_arr[:samples_to_plot], title=title)
 
-    # color='tab:red'
-    # ax1.plot(t_arr, np.real(x1[:mul*samples_per_period]), color=color, label='Real', linestyle=':')
-    # ax1.plot(t_arr, np.imag(x1[:mul*samples_per_period]), color=color, label='Imag.', linestyle='--')
-    # ax1.set_ylabel('Mag.', color=color)
-    # ax1.tick_params(axis='y', labelcolor=color)
-    # ax2.plot(t_arr, np.real(x2[:mul*samples_per_period]), color=color, label='Real', linestyle=':')
-    # ax2.plot(t_arr, np.imag(x2[:mul*samples_per_period]), color=color, label='Imag.', linestyle='--')
-    # ax2.set_ylabel('Mag.', color=color)
-    # ax2.tick_params(axis='y', labelcolor=color)
-    # ax1.legend()
-    # ax2.legend()
+    # title = 'Plain input signals'
+    # plot2complexSignals(x1, t_arr, x2, t_arr, title)
 
-    # ax3 = ax1.twinx()
-    # ax4 = ax2.twinx()
 
-    # color='tab:blue'
-    # ax3.plot(t_arr, np.angle(x1[:mul*samples_per_period]))
-    # ax3.set_ylabel('Phase', color=color)
-    # ax3.tick_params(axis='y', labelcolor=color)
-    # # ax3.set_yticks([-3.14,0,3.14])
-    # ax4.plot(t_arr, np.angle(x2[:mul*samples_per_period]))
-    # ax4.set_ylabel('Phase', color=color)
-    # ax4.tick_params(axis='y', labelcolor=color)
-    # # ax4.set_yticks([-3.14,0,3.14])
+    # Add noise
+    x1 = addAWGNbySNR(x1, 10)
+    x2 = addAWGNbySNR(x2, 10)
+    # title = 'First {} periods of noisy input signals'.format(mul)
+    # plot2complexSignals(x1[:samples_to_plot], t_arr[:samples_to_plot], x2[:samples_to_plot], t_arr[:samples_to_plot], title=title)
 
-    # ax2.set_xlabel('Time (s)')
-    # ax1.set_title('x1')  
-    # ax2.set_title('x2')  
-    # plt.show()
-
+    # title = 'Noisy input signals'
+    # plot2complexSignals(x1, t_arr, x2, t_arr, title)
 
 
     ## Run each stream through a PFB/DFT
@@ -244,22 +331,21 @@ def main(args):
     ## ACM those bad boys
     ACM = quick_ACM(x1_spec, x2_spec)
 
+    print("x1_pfb shape: {}".format(x1_spec.shape))
+    print("ACM shape: {}".format(ACM.shape))
+
     # show_waterfalls(ACM[0,0], fc=fc, fs=fs, title='ACM[0,0]')
-    show_waterfalls(ACM[0,1], fc=fc, fs=fs, title='ACM[0,1]')
+    # show_waterfalls(ACM[0,1], fc=fc, fs=fs, title='ACM[0,1]')
     # show_waterfalls(ACM[1,0], fc=fc, fs=fs, title='ACM[1,0]')
     # show_waterfalls(ACM[1,1], fc=fc, fs=fs, title='ACM[1,1]')
 
+    ## Extract bin of value from ACM[0,1]
+    # bin = get_frequency_bin(fc=fc, f1=f1, fft_size=fft_size)
+    # print("BIN: {}".format(bin))
+    # pulled_bin = ACM[0,1,:,bin]
+    # t_steps = np.linspace(0,len(pulled_bin)*fs,len(pulled_bin)) # not true
 
-
-    # Waterfalls
-    # f, (ax1, ax2) = plt.subplots(1, 2, sharex=True)
-    # f.suptitle('ACM[0,1]')
-    # ax1.matshow(10.*np.log10(np.abs(ACM[0,1,:,:])))
-    # ax1.set_title('Magnitude')  
-    # ax2.matshow(np.angle(ACM[0,1,:,:]))
-    # ax2.set_title('Phase')  
-    # ax2.set_xlabel('Freqs')
-    # plt.show()
+    # plot2complexSignals(x1, t_arr, pulled_bin, t_steps, title='Before and after')
 
 
 if __name__ == "__main__":
