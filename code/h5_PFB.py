@@ -112,7 +112,7 @@ def main(args):
             fo.create_dataset("freqs", (len(freqs),), dtype="float32")[:] = freqs
 
             for i in range(len(fiPol0)):
-                print("{}/{}".format(i,len(fiPol0)-1))
+                print("Antenna {}/{}".format(i+1,len(fiPol0)))
                 foPol0[i] = quick_pfb(fiPol0[i],args.nfft, args.navg)
                 # foPol1[i] = quick_pfb(fiPol1[i],args.nfft, args.navg)
 

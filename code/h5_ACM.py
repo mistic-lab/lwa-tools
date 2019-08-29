@@ -84,15 +84,20 @@ def main(args):
                 fo.attrs[key] = value
                 print("--| key: {}  | value: {}".format(key, value))
             
-            print("-| Checking for freq/antenna parametes")
+            print("-| Checking for freq/antenna parameters")
             if args.freq:
                 fBin = get_frequency_bin(fo.attrs['freq1'], args.freq, fo.attrs['nFFT'],fs=fo.attrs['sampleRate'])
                 print("--| {} Hz is in bin {}".format(args.freq, fBin))
+                print("--| Adding fBin to attributes")
+                fo.attrs['fBin'] = fBin
             else:
                 print("--| Building ACM for all available bins")
             if args.ant:
                 idAnt = args.ant
                 print("--| Only building relative to id {}".format(idAnt))
+                print("--| Adding antID to attributes")
+                fo.attrs['antID'] = antID
+
             else:
                 print("--| Building ACM for all available indexes") 
 
@@ -129,7 +134,7 @@ def main(args):
 
             if 0 in args.pol:
                 for t in range(tlen):
-                    print("t: {}/{}".format(t, tlen))
+                    print("t: {}/{}".format(t, tlen-1))
                     if args.freq and args.ant:
                         __build_singleFreq_singleAnt_ACM__(foPol0_ACM,fiPol0, t, idAnt,fBin)
                     elif args.freq and not args.ant:
@@ -141,7 +146,7 @@ def main(args):
 
             if 1 in args.pol:
                 for t in range(tlen):
-                    print("t: {}/{}".format(t, tlen))
+                    print("t: {}/{}".format(t, tlen-1))
                     if args.freq and args.ant:
                         __build_singleFreq_singleAnt_ACM__(foPol1_ACM,fiPol1, t, idAnt,fBin)
                     elif args.freq and not args.ant:
