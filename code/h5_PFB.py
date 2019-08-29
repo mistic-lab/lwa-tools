@@ -70,7 +70,9 @@ def main(args):
 
         fiParent = fi[input_filename]
         fiPol0 = fiParent['pol0']
-        fiPol1 = fiParent['pol1']
+        # fiPol1 = fiParent['pol1']
+
+
 
 
         with h5py.File(output_file,'w') as fo:
@@ -88,6 +90,9 @@ def main(args):
             fo.attrs['nFFT'] = args.nfft
             fo.attrs['nAVG'] = args.navg
 
+            fs = fo.attrs['sampleRate']
+            fc = fo.attrs['freq1']
+
             # Creating output size
             tsLen = fiPol0.shape[1]
             print("-| Input time series length is {} samples".format(tsLen))
@@ -98,17 +103,18 @@ def main(args):
             # Create a subdataset for each polarization
             print("-| Creating datasets full of zeros")
             foPol0 = fo.create_dataset("pol0", output_shape, dtype=np.complex64)#, compression='lzf')
-            foPol1 = fo.create_dataset("pol1", output_shape, dtype=np.complex64)#, compression='lzf')
+            # foPol1 = fo.create_dataset("pol1", output_shape, dtype=np.complex64)#, compression='lzf')
 
-            times = np.linspace(0, output_shape[1]*args.nfft*args.navg/args.fs, output_shape[1], endpoint=False)+int(input_filename)
-            freqs = np.linspace(-args.fs/2, args.fs/2, args.nfft, endpoint=False)+args.fc
+            times = np.linspace(0, output_shape[1]*args.nfft*args.navg/fs, output_shape[1], endpoint=False)+fo.attrs['tStart']
+            freqs = np.linspace(-fs/2, fs/2, args.nfft, endpoint=False)+fc
 
             fo.create_dataset('times', (len(times),), dtype="float64")[:] = times
             fo.create_dataset("freqs", (len(freqs),), dtype="float32")[:] = freqs
 
             for i in range(len(fiPol0)):
+                print("{}/{}".format(i,len(fiPol0)-1))
                 foPol0[i] = quick_pfb(fiPol0[i],args.nfft, args.navg)
-                foPol1[i] = quick_pfb(fiPol1[i],args.nfft, args.navg)
+                # foPol1[i] = quick_pfb(fiPol1[i],args.nfft, args.navg)
 
 
 
@@ -119,15 +125,11 @@ if __name__ == "__main__":
         description='Creates integrated complex spectra from time series.', 
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
         )
+    parser.add_argument('input', type=str,
+                        help='input h5 file of time series')
     parser.add_argument('-n', '--nfft', type=int, default=1000, 
                         help='fft size')
     parser.add_argument('-a', '--navg', type=int, default=10, 
                         help='number of ffts to average (PFB taps)')
-    parser.add_argument('-s', '--fs', type=int, default=100e3, 
-                        help='sampling frequency in Hz')
-    parser.add_argument('-c', '--fc', type=float, default=5024999.967776239, 
-                        help='sampling frequency in Hz')
-    parser.add_argument('-i', '--input', type=str,
-                        help='input h5 file of time series')
     args = parser.parse_args()
     main(args)

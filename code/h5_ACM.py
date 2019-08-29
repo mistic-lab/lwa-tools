@@ -9,36 +9,45 @@ from datetime import datetime
 import h5py
 import time
 import math
+from utils import get_frequency_bin
 
-############################# ACM #############################
-def quick_ACM(phys_chan_1, phys_chan_2):
-    """Runs two waterfalls into an array covariance matrix.
 
-    Parameters
-    ----------
-    phys_chan_1 : array
-                MUST be of shape (tlen, fft_size)
+def __build_singleAnt_ACM__(foACM, fiPol, tIdx, antIdx, fft_size):
+    for k in range(fft_size):
+        x_k = np.array(fiPol[:,tIdx,k])
+        x_k_h = x_k[antIdx].conj().T
+        result = x_k * x_k_h
+        foACM[:, tIdx, k] = result
 
-    Returns
-    -------
-    numpy array
-        shape is (2, 2, tlen, fft_size)
-    """
-    tlen = phys_chan_1.shape[0]
-    fft_size = phys_chan_1.shape[1]
+def __build_singleFreq_ACM__(foACM, fiPol, tIdx, fBin):
+    x_k = np.array(fiPol[:,tIdx,fBin])
+    x_k = x_k.reshape(1,-1) # Cast to column vector
+    x_k_h = x_k.conj().T
+    result = x_k * x_k_h
+    foACM[:, :, tIdx] = result
 
-    ACM = np.zeros((2, 2, tlen, fft_size), dtype=phys_chan_1.dtype)
-    
-    for t in range(tlen):
-        for k in range(fft_size):
-            x_k = np.array((phys_chan_1[t,k],phys_chan_2[t,k]))
-            x_k = x_k.reshape(1,-1) # Cast to column vector
-            x_k_h = x_k.conj().T
-            ACM[:, :, t, k] = x_k * x_k_h
+def __build_singleFreq_singleAnt_ACM__(foACM, fiPol, tIdx, antIdx, fBin):
+    x_k = np.array(fiPol[:,tIdx,fBin])
+    x_k_h = x_k[antIdx].conj().T
+    result = x_k * x_k_h
+    foACM[:, tIdx] = result # there was a tIdx, but I think it was a boooboo
 
-    return ACM
+def __build_full_ACM__(foACM, fiPol, tIdx, fft_size):
+    for k in range(fft_size):
+        x_k = np.array(fiPol[:,tIdx,k])
+        x_k = x_k.reshape(1,-1) # Cast to column vector
+        x_k_h = x_k.conj().T
+        result = x_k * x_k_h
+        foACM[:, :, tIdx, k] = result
+
+
 
 def main(args):
+
+    if args.freq == -100.0:
+        args.freq = False
+    if args.ant == -100:
+        args.ant = False
 
     print("\nCreating filenames and checking input file extension")
     input_file = args.input
@@ -48,7 +57,7 @@ def main(args):
     if ext not in ['.h5', '.hdf5']:
         raise Exception("Extension should be .h5 or .hdf5, instead it is {}".format(str(ext)))
     else:
-        input_filename = os.path.split(os.path.splitext(input_file)[-2])[-1]
+        input_filename = os.path.split(os.path.splitext(input_file)[-2])[-1][:-8]
         output_file = input_filename + '_ACM.hdf5'
         print("-| Input file is {}".format(input_file))
         print("-| Output file is {}".format(output_file))
@@ -56,17 +65,37 @@ def main(args):
 
     with h5py.File(args.input, 'r') as fi:
 
-        fiPol0 = fi['pol0']
-        fiPol1 = fi['pol1']
+        # args.pol = int(args.pol)
+        print("args.pol = {}".format(args.pol))
+
+        print("-| Checking polarizations")
+        if 0 in args.pol:
+            fiPol0 = fi['pol0']
+            print("--| Building pol0")
+        if 1 in args.pol:
+            fiPol1 = fi['pol1']
+            print("--| Building pol1")
 
 
         with h5py.File(output_file,'w') as fo:
 
-            # Add attributes to group
             print("-| Copying attributes")
             for key, value in fi.attrs.items():
                 fo.attrs[key] = value
                 print("--| key: {}  | value: {}".format(key, value))
+            
+            print("-| Checking for freq/antenna parametes")
+            if args.freq:
+                fBin = get_frequency_bin(fo.attrs['freq1'], args.freq, fo.attrs['nFFT'],fs=fo.attrs['sampleRate'])
+                print("--| {} Hz is in bin {}".format(args.freq, fBin))
+            else:
+                print("--| Building ACM for all available bins")
+            if args.ant:
+                idAnt = args.ant
+                print("--| Only building relative to id {}".format(idAnt))
+            else:
+                print("--| Building ACM for all available indexes") 
+
 
             print("-| Copying frequency and time arrays")
             fo.create_dataset('times', (len(fi['times']),), dtype="float64")[:] = fi['times']
@@ -75,33 +104,52 @@ def main(args):
 
             # Creating output size
             tlen = len(fi['times'])
-            fft_size = len(fi['freqs'])
-            output_shape = (fi['pol0'].shape[0], fi['pol0'].shape[0], tlen, fft_size)
+
+            if args.freq and args.ant:
+                fft_size = 1
+                output_shape = (fi['pol0'].shape[0], tlen)
+            elif args.freq and not args.ant:
+                fft_size = 1
+                output_shape = (fi['pol0'].shape[0],fi['pol0'].shape[0],tlen)
+            elif args.ant and not args.freq:
+                fft_size = len(fi['freqs'])
+                output_shape = (fi['pol0'].shape[0], tlen, fft_size)
+            else:
+                fft_size = len(fi['freqs'])
+                output_shape = (fi['pol0'].shape[0], fi['pol0'].shape[0], tlen, fft_size)
+            
             print("-| Output ACM shape is: {}".format(output_shape))
 
             # Create a subdataset for each polarization
             print("-| Creating datasets full of zeros")
-            foPol0_ACM = fo.create_dataset("pol0_ACM", output_shape, dtype=np.complex64)
-            foPol1_ACM = fo.create_dataset("pol1_ACM", output_shape, dtype=np.complex64)
+            if 0 in args.pol:
+                foPol0_ACM = fo.create_dataset("pol0", output_shape, dtype=np.complex64)
+            if 1 in args.pol:
+                foPol1_ACM = fo.create_dataset("pol1", output_shape, dtype=np.complex64)
 
-            for t in range(tlen):
-                print("pol0 {}/{}".format(t, tlen))
-                for k in range(fft_size):
-                    x_k = fiPol0[:,t,k]
-                    # x_k = np.array((phys_chan_1[t,k],phys_chan_2[t,k]))
-                    x_k = x_k.reshape(1,-1) # Cast to column vector
-                    x_k_h = x_k.conj().T
-                    foPol0_ACM[:, :, t, k] = x_k * x_k_h
-            
-            for t in range(tlen):
-                print("pol1 {}/{}".format(t, tlen))
-                for k in range(fft_size):
-                    x_k = fiPol1[:,t,k]
-                    # x_k = np.array((phys_chan_1[t,k],phys_chan_2[t,k]))
-                    x_k = x_k.reshape(1,-1) # Cast to column vector
-                    x_k_h = x_k.conj().T
-                    foPol1_ACM[:, :, t, k] = x_k * x_k_h
+            if 0 in args.pol:
+                for t in range(tlen):
+                    print("t: {}/{}".format(t, tlen))
+                    if args.freq and args.ant:
+                        __build_singleFreq_singleAnt_ACM__(foPol0_ACM,fiPol0, t, idAnt,fBin)
+                    elif args.freq and not args.ant:
+                        __build_singleFreq_ACM__(foPol0_ACM, fiPol0,t,fBin)
+                    elif args.ant and not args.freq:
+                        __build_singleAnt_ACM__(foPol0_ACM,fiPol0, t, idAnt,fft_size)
+                    else:
+                        __build_full_ACM__(foPol0_ACM, fiPol0, t, fft_size)
 
+            if 1 in args.pol:
+                for t in range(tlen):
+                    print("t: {}/{}".format(t, tlen))
+                    if args.freq and args.ant:
+                        __build_singleFreq_singleAnt_ACM__(foPol1_ACM,fiPol1, t, idAnt,fBin)
+                    elif args.freq and not args.ant:
+                        __build_singleFreq_ACM__(foPol1_ACM, fiPol1,t,fBin)
+                    elif args.ant and not args.freq:
+                        __build_singleAnt_ACM__(foPol1_ACM,fiPol1, t, idAnt,fft_size)
+                    else:
+                        __build_full_ACM__(foPol1_ACM, fiPol1, t, fft_size)
 
 
 
@@ -113,5 +161,11 @@ if __name__ == "__main__":
         )
     parser.add_argument('input', type=str,
                         help='input h5 file of time series')
+    parser.add_argument('-f', '--freq', type=float, default = -100.0,
+                        help='frequency to keep in Hz')
+    parser.add_argument('-a', '--ant', type=int, default = -100,
+                        help='antenna index to keep')
+    parser.add_argument('--pol', type = int, action='append',
+                        help='polarization to build')
     args = parser.parse_args()
     main(args)
