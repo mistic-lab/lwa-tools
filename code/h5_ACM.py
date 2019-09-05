@@ -96,7 +96,7 @@ def main(args):
                 idAnt = args.ant
                 print("--| Only building relative to id {}".format(idAnt))
                 print("--| Adding antID to attributes")
-                fo.attrs['antID'] = antID
+                fo.attrs['antID'] = idAnt
 
             else:
                 print("--| Building ACM for all available indexes") 
