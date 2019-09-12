@@ -170,7 +170,7 @@ if __name__ == "__main__":
                         help='frequency to keep in Hz')
     parser.add_argument('-a', '--ant', type=int, default = -100,
                         help='antenna index to keep')
-    parser.add_argument('--pol', type = int, action='append',
-                        help='polarization to build')
+    parser.add_argument('-p', '--pol', type = int, action='append',
+                        help='polarization(s) to build. Call flag twice for each polarization')
     args = parser.parse_args()
     main(args)
