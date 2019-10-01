@@ -109,11 +109,11 @@ def make_sample_tbn(filename, num_frames=2000000):
         fh2.write(fh1.read(tbn.FrameSize*num_frames))
         fh1.close()
         fh2.close()
-    print "\n%s TBN Size: %.1f kB" % (simple_name, os.path.getsize(simple_name+'.tbn')/1024.)
+    print("\n%s TBN Size: %.1f kB".format(simple_name, os.path.getsize(simple_name+'.tbn')/1024.))
 
     # Check that the datatype is correct according to lsl
     idfN = LWASVDataFile(simple_name+'.tbn')
-    print "%s is of type: %s \n" % (simple_name, type(idfN))
+    print("%s is of type: %s \n".format(simple_name, type(idfN)))
 
 
     idfN.close()
