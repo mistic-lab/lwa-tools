@@ -9,7 +9,7 @@ from datetime import datetime
 import h5py
 import time
 import math
-from utils import get_frequency_bin
+from arrUtils import get_frequency_bin
 
 
 def __build_singleAnt_ACM__(foACM, fiPol, tIdx, antIdx, fft_size):
