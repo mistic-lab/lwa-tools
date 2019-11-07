@@ -165,7 +165,7 @@ if __name__ == "__main__":
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
         )
     parser.add_argument('input', type=str,
-                        help='input h5 file of time series')
+                        help='input h5 file of integrated spectra')
     parser.add_argument('-f', '--freq', type=float, default = -100.0,
                         help='frequency to keep in Hz')
     parser.add_argument('-a', '--ant', type=int, default = -100,
