@@ -12,6 +12,7 @@ import numpy.lib.format as fmt
 import urllib2
 from datetime import datetime
 import h5py
+import math
 
 from lsl.reader import tbn
 from lsl.reader.ldp import LWASVDataFile
@@ -20,7 +21,7 @@ from lsl.common import stations
 import arrUtils
 
 
-def extract_single_ant(input_file, dp_stand_id, polarization):
+def extract_single_ant(input_file, dp_stand_id, polarization, max_length=-1):
     """Extract and combine all data from a single antenna into a numpy array.
 
     Parameters
@@ -31,6 +32,8 @@ def extract_single_ant(input_file, dp_stand_id, polarization):
                 stand id from 1 to 256 inclusive
     polarization : int
                 antenna polarization
+    max_length : int
+                length in samples to extract
 
     Returns
     -------
@@ -41,7 +44,22 @@ def extract_single_ant(input_file, dp_stand_id, polarization):
     input_data = LWASVDataFile(input_file)
     output_data = []
 
-    while input_data.getRemainingFrameCount() > 0:
+    total_frames = input_data.getRemainingFrameCount()
+    num_ants = input_data.getInfo()['nAntenna']
+    samps_per_frame = 512
+    max_possible_length = math.ceil( total_frames / num_ants ) * samps_per_frame
+
+    if max_length < 0:
+        max_length = max_possible_length
+
+    print("-| {} frames in file".format(total_frames))
+    print("-| {} antennas in file".format(num_ants))
+    print("-| {} samples per frame".format(samps_per_frame))
+    print("--| Extracting from stand {}, pol {}".format(dp_stand_id, polarization))
+    print("--| Extracting {} of a possible {} samples".format(max_length, max_possible_length))
+
+    # while input_data.getRemainingFrameCount() > 0:
+    while len(output_data) < max_length:
         current_frame = input_data.readFrame()
 
         if current_frame.parseID() == (dp_stand_id, polarization):
@@ -64,10 +82,11 @@ def meta_to_txt(filename):
 
 
     # print localFile
-    simple_name = os.path.realpath(filename.split('/'))[-1]
-    simple_name = simple_name.split('.')[0]
+    # simple_name = os.path.realpath(filename.split('/'))[-1]
+    # simple_name = simple_name.split('.')[0]
+    simple_name = filename
 
-    print("{} TBN Size: {} kB".format(simple_name, os.path.getsize(filename)/1024))
+    print("{} TBN Size: {} kB".format(simple_name, os.path.getsize(simple_name)/1024))
 
     # Check that the datatype is correct according to lsl
     idfN = LWASVDataFile(filename)
@@ -365,3 +384,107 @@ def load_binary_file_to_array(filename):
     return arr
 
 
+def extract_single_ant_from_end(input_file, dp_stand_id, polarization, max_length=-1):
+    """Extract and combine all data from a single antenna into a numpy array.
+
+    Parameters
+    ----------
+    input_file : string
+                raw LWA-SV file path
+    DP_stand_id : int
+                stand id from 1 to 256 inclusive
+    polarization : int
+                antenna polarization
+    max_length : int
+            length in samples to extract
+
+
+    Returns
+    -------
+    numpy array
+        array of size (avail frames, bandwidth)
+    """
+
+    input_data = LWASVDataFile(input_file)
+    output_data = []
+
+    total_frames = input_data.getRemainingFrameCount()
+    num_ants = input_data.getInfo()['nAntenna']
+    samps_per_frame = 512
+    max_possible_length = math.ceil( total_frames / num_ants ) * samps_per_frame
+
+    if max_length < 0:
+        max_length = max_possible_length
+
+    print("-| {} frames in file".format(total_frames))
+    print("-| {} antennas in file".format(num_ants))
+    print("-| {} samples per frame".format(samps_per_frame))
+    print("--| Extracting from stand {}, pol {}".format(dp_stand_id, polarization))
+    print("--| Extracting {} of a possible {} samples".format(max_length, max_possible_length))
+
+    while input_data.getRemainingFrameCount() > 0:
+    # while len(output_data) < max_length:
+        current_frame = input_data.readFrame()
+
+        if current_frame.parseID() == (dp_stand_id, polarization):
+            for i in range(len(current_frame.data.iq)):
+                output_data.append(current_frame.data.iq[i])
+            if len(output_data) > max_length:
+                del output_data[:samps_per_frame]
+
+    output_data = np.array(output_data)
+
+    return output_data
+
+def extract_single_ant_from_middle(input_file, dp_stand_id, polarization, max_length=-1, tstart=0):
+    """Extract and combine all data from a single antenna into a numpy array.
+
+    Parameters
+    ----------
+    input_file : string
+                raw LWA-SV file path
+    DP_stand_id : int
+                stand id from 1 to 256 inclusive
+    polarization : int
+                antenna polarization
+    max_length : int
+            length in samples to extract
+    tstart : int
+            UTC timestamp (s since epoch)
+
+    Returns
+    -------
+    numpy array
+        array of size (avail frames, bandwidth)
+    """
+
+    input_data = LWASVDataFile(input_file)
+    output_data = []
+
+    total_frames = input_data.getRemainingFrameCount()
+    num_ants = input_data.getInfo()['nAntenna']
+    samps_per_frame = 512
+    max_possible_length = math.ceil( total_frames / num_ants ) * samps_per_frame
+
+    if max_length < 0:
+        max_length = max_possible_length
+
+    print("-| {} frames in file".format(total_frames))
+    print("-| {} antennas in file".format(num_ants))
+    print("-| {} samples per frame".format(samps_per_frame))
+    print("--| Extracting from stand {}, pol {}".format(dp_stand_id, polarization))
+    print("--| Extracting {} of a possible {} samples".format(max_length, max_possible_length))
+
+    while len(output_data) < max_length:
+    # while input_data.getRemainingFrameCount() > 0:
+        current_frame = input_data.readFrame()
+        current_tstamp = current_frame.getTime()
+
+        if current_tstamp >= tstart:
+            if current_frame.parseID() == (dp_stand_id, polarization):
+                for i in range(len(current_frame.data.iq)):
+                    output_data.append(current_frame.data.iq[i])
+
+    output_data = np.array(output_data)
+
+    return output_data
