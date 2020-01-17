@@ -103,6 +103,29 @@ def meta_to_txt(filename):
 
     idfN.close()
 
+def pull_meta(filename, key):
+    """ Pulls out metadata from a TBN file given a key.
+
+    Possible keys: 'dataBits','FrameSize','Human tStart', 'tStart','nAntenna','sampleRate','nFrames','tStartSamples','freq1','size'
+
+    Parameters
+    ----------
+    filename : string
+                name of the file to pull the meta from
+    key : string
+                one of the possible keys listed above
+    """
+    idfN = LWASVDataFile(filename)
+    if key == 'Human tStart':
+        tbnKey = 'tStart'
+    else:
+        tbnKey = key
+    value = idfN.getInfo()[tbnKey]
+    if key == 'Human tStart':
+        return str(datetime.utcfromtimestamp(value))
+    else:
+        return str(value)
+
 def make_sample_tbn(filename, num_frames=2000000):
     """Takes the defined number of frames and writes them to a new .tbn file
 

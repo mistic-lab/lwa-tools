@@ -61,7 +61,7 @@ def main(args):
         
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description='converts TBN file to hdf5 file', 
+        description='compares TBN with H5 file one antenna at a time', 
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
         )
         parser.add_argument('-h', 'hdf5', type=str, 
