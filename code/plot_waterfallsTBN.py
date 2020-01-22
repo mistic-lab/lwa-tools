@@ -1,4 +1,6 @@
 from parseTBN import extract_single_ant, pull_meta
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import os
 import argparse
