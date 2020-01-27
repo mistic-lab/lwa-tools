@@ -15,7 +15,7 @@ from lsl.common import stations, metabundle, metabundleADP
 
 import matplotlib.pyplot as plt
 from matplotlib.ticker import NullFormatter
-
+from lwa_common import get_bearing
 
 def main(args):
     # Parse command line
@@ -56,8 +56,11 @@ def main(args):
         i += 1
     
     # Angle of arrival of wavefront (bearing from north, clockwise)
-    tx=43.80805491642218
-    tx_rad = math.radians(tx)
+    tx_rad=get_bearing(
+            [math.degrees(station.lat), math.degrees(station.long)],
+            args.transmitter)
+    #tx=43.80805491642218
+    #tx_rad = math.radians(tx)
 
     # Color-code the stands by their elevation
     color = data[:,2]
@@ -118,6 +121,8 @@ if __name__ == "__main__":
         )
     parser.add_argument('stand', type=int, nargs='*', 
                         help='stand number to mark')
+    parser.add_argument('-t', '--transmitter', type=float, nargs=2, metavar=('lat', 'long'),
+                        help='transmitter coordinates in decimal degrees')
     parser.add_argument('-s', '--lwasv', action='store_true', 
                         help='use LWA-SV instead of LWA1')
     parser.add_argument('-m', '--metadata', type=str, 
