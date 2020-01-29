@@ -20,7 +20,7 @@ from lwa_common import get_bearing
 def main(args):
     # Parse command line
     if args.markall:
-        args.stand = numpy.arange(1,256,1)
+        args.stand = numpy.arange(1,257,1)
     toMark = numpy.array(args.stand)-1
 
     # Setup the LWA station information
