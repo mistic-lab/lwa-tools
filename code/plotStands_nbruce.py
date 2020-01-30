@@ -18,7 +18,21 @@ from matplotlib.ticker import NullFormatter
 from lwa_common import get_bearing
 
 def main(args):
+
+    known_transmitter_locations = {
+            'WWV' : [40.679917, -105.040944]
+            }
+
     # Parse command line
+
+    if args.known_transmitters:
+        for key in known_transmitter_locations.keys():
+            print(key + ": " + str(known_transmitter_locations[key]))
+        return
+
+    if args.transmitter is not None and str(args.transmitter[0]) in known_transmitter_locations:
+        args.transmitter = known_transmitter_locations[str(args.transmitter[0])]
+
     if args.markall:
         args.stand = numpy.arange(1,257,1)
     toMark = numpy.array(args.stand)-1
@@ -55,12 +69,13 @@ def main(args):
             min_Y = stand.y
         i += 1
     
-    # Angle of arrival of wavefront (bearing from north, clockwise)
-    tx_rad=get_bearing(
-            [math.degrees(station.lat), math.degrees(station.long)],
-            args.transmitter)
-    #tx=43.80805491642218
-    #tx_rad = math.radians(tx)
+    if args.transmitter is not None:
+        # Angle of arrival of wavefront (bearing from north, clockwise)
+        tx_rad=get_bearing(
+                [math.degrees(station.lat), math.degrees(station.long)],
+                args.transmitter[0:2])
+        #tx=43.80805491642218
+        #tx_rad = math.radians(tx)
 
     # Color-code the stands by their elevation
     color = data[:,2]
@@ -78,8 +93,10 @@ def main(args):
     ax1.set_ylabel('$\Delta$Y [N-S; m]')
     ax1.set_ylim([-80, 80])
     ax1.set_title('%s Site:  %.3f$^\circ$N, %.3f$^\circ$W' % (station.name, station.lat*180.0/numpy.pi, -station.long*180.0/numpy.pi))
-    # Plot line perpendicular to wavefront
-    ax1.plot([min_Y*math.tan(tx_rad),max_Y*math.tan(tx_rad)], [min_Y, max_Y])
+
+    if args.transmitter is not None:
+        # Plot line perpendicular to wavefront
+        ax1.plot([min_Y*math.tan(tx_rad),max_Y*math.tan(tx_rad)], [min_Y, max_Y])
     
     ax2.scatter(data[:,0], data[:,2], c=color, s=40.0)
     ax2.xaxis.set_major_formatter( NullFormatter() )
@@ -121,8 +138,10 @@ if __name__ == "__main__":
         )
     parser.add_argument('stand', type=int, nargs='*', 
                         help='stand number to mark')
-    parser.add_argument('-t', '--transmitter', type=float, nargs=2, metavar=('lat', 'long'),
-                        help='transmitter coordinates in decimal degrees')
+    parser.add_argument('-t', '--transmitter', nargs='+', metavar=('lat', 'long'),
+                        help='transmitter coordinates in decimal degrees OR provide the name of a known transmitter')
+    parser.add_argument('-k', '--known-transmitters', action='store_true',
+                        help='list known transmitter names that can be passed with -t')
     parser.add_argument('-s', '--lwasv', action='store_true', 
                         help='use LWA-SV instead of LWA1')
     parser.add_argument('-m', '--metadata', type=str, 
