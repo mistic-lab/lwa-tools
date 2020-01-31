@@ -16,22 +16,13 @@ from lsl.common import stations, metabundle, metabundleADP
 import matplotlib.pyplot as plt
 from matplotlib.ticker import NullFormatter
 from lwa_common import get_bearing
+import known_transmitters
 
 def main(args):
 
-    known_transmitter_locations = {
-            'WWV' : [40.679917, -105.040944]
-            }
-
     # Parse command line
 
-    if args.known_transmitters:
-        for key in known_transmitter_locations.keys():
-            print(key + ": " + str(known_transmitter_locations[key]))
-        return
-
-    if args.transmitter is not None and str(args.transmitter[0]) in known_transmitter_locations:
-        args.transmitter = known_transmitter_locations[str(args.transmitter[0])]
+    transmitter_coords = known_transmitters.parse_args(args) 
 
     if args.markall:
         args.stand = numpy.arange(1,257,1)
@@ -69,11 +60,11 @@ def main(args):
             min_Y = stand.y
         i += 1
     
-    if args.transmitter is not None:
+    if transmitter_coords is not None:
         # Angle of arrival of wavefront (bearing from north, clockwise)
         tx_rad=get_bearing(
                 [math.degrees(station.lat), math.degrees(station.long)],
-                args.transmitter[0:2])
+                transmitter_coords)
         #tx=43.80805491642218
         #tx_rad = math.radians(tx)
 
@@ -94,7 +85,7 @@ def main(args):
     ax1.set_ylim([-80, 80])
     ax1.set_title('%s Site:  %.3f$^\circ$N, %.3f$^\circ$W' % (station.name, station.lat*180.0/numpy.pi, -station.long*180.0/numpy.pi))
 
-    if args.transmitter is not None:
+    if transmitter_coords is not None:
         # Plot line perpendicular to wavefront
         ax1.plot([min_Y*math.tan(tx_rad),max_Y*math.tan(tx_rad)], [min_Y, max_Y])
     
@@ -138,10 +129,6 @@ if __name__ == "__main__":
         )
     parser.add_argument('stand', type=int, nargs='*', 
                         help='stand number to mark')
-    parser.add_argument('-t', '--transmitter', nargs='+', metavar=('lat', 'long'),
-                        help='transmitter coordinates in decimal degrees OR provide the name of a known transmitter')
-    parser.add_argument('-k', '--known-transmitters', action='store_true',
-                        help='list known transmitter names that can be passed with -t')
     parser.add_argument('-s', '--lwasv', action='store_true', 
                         help='use LWA-SV instead of LWA1')
     parser.add_argument('-m', '--metadata', type=str, 
@@ -156,6 +143,7 @@ if __name__ == "__main__":
                         help='suppress live plot')
     parser.add_argument('-a','--markall', action='store_true',
                         help='mark all stand locations. Can be used in conjunction with --label')
+    known_transmitters.add_args(parser)
     args = parser.parse_args()
     main(args)
     
