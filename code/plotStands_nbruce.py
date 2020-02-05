@@ -97,8 +97,8 @@ def main(args):
     cb = plt.colorbar(c, cax=ax4, orientation='vertical', ticks=[-2, -1, 0, 1, 2])
     
     # Set the axis limits
-    ax1.set_xlim([-60, 60])
-    ax1.set_ylim([-60, 60])
+    ax1.set_xlim([-80, 80])
+    ax1.set_ylim([-80, 80])
     ax2.set_xlim( ax1.get_xlim() )
     ax3.set_ylim( ax1.get_ylim() )
     
