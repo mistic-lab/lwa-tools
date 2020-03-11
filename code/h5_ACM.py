@@ -40,6 +40,15 @@ def __build_full_ACM__(foACM, fiPol, tIdx, fft_size):
         result = x_k * x_k_h
         foACM[:, :, tIdx, k] = result
 
+def __build_singleFreq_dual_pol_ACM__(foACM, fiPol0, fiPol1, tIdx, fBin):
+    x_k = fiPol0[:,tIdx,fBin]
+    x_k = x_k.reshape(1,-1) # Cast to column vector
+    x_k_h = fiPol1[:,tIdx,fBin]
+    x_k_h = x_k_h.reshape(1,-1) # Cast to column vector
+    x_k_h = x_k_h.conj().T
+    result = x_k * x_k_h
+    foACM[:, :, tIdx] = result
+
 
 
 def main(args):
@@ -75,7 +84,6 @@ def main(args):
         if 1 in args.pol:
             fiPol1 = fi['pol1']
             print("--| Building pol1")
-
 
         with h5py.File(output_file,'w') as fo:
 
@@ -131,6 +139,9 @@ def main(args):
                 foPol0_ACM = fo.create_dataset("pol0", output_shape, dtype=np.complex64)
             if 1 in args.pol:
                 foPol1_ACM = fo.create_dataset("pol1", output_shape, dtype=np.complex64)
+            if 0 and 1 in args.pol:
+                foPol01_ACM = fo.create_dataset("pol01", output_shape, dtype=np.complex64)
+                foPol10_ACM = fo.create_dataset("pol10", output_shape, dtype=np.complex64)
 
             if 0 in args.pol:
                 for t in range(tlen):
@@ -155,6 +166,20 @@ def main(args):
                         __build_singleAnt_ACM__(foPol1_ACM,fiPol1, t, idAnt,fft_size)
                     else:
                         __build_full_ACM__(foPol1_ACM, fiPol1, t, fft_size)
+            if 0 and 1 in args.pol:
+                for t in range(tlen):
+                    print("t: {}/{}".format(t, tlen-1))
+                    # if args.freq and args.ant:
+                    #     __build_singleFreq_singleAnt_ACM__(foPol1_ACM,fiPol1, t, idAnt,fBin)
+                    if args.freq and not args.ant: #! Should be elif
+                        __build_singleFreq_dualpol_ACM__(foPol01_ACM, fiPol0, fiPol1, t, fBin)
+                        __build_singleFreq_dualpol_ACM__(foPol10_ACM, fiPol1, fiPol0, t, fBin)
+                    # elif args.ant and not args.freq:
+                    #     __build_singleAnt_ACM__(foPol1_ACM,fiPol1, t, idAnt,fft_size)
+                    # else:
+                    #     __build_full_ACM__(foPol1_ACM, fiPol1, t, fft_size)
+
+
 
 
 
@@ -171,6 +196,6 @@ if __name__ == "__main__":
     parser.add_argument('-a', '--ant', type=int, default = -100,
                         help='antenna index to keep')
     parser.add_argument('-p', '--pol', type = int, action='append',
-                        help='polarization(s) to build. Call flag twice for each polarization')
+                        help='polarization(s) to build. Call flag as many times as you want to get multiple polarizations')
     args = parser.parse_args()
     main(args)
