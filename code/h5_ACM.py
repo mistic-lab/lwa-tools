@@ -142,11 +142,15 @@ def main(args):
             # Create a subdataset for each polarization
             print("-| Creating datasets full of zeros")
             if 0 in args.pol:
+                print("--| pol0")
                 foPol0_ACM = fo.create_dataset("pol0", output_shape, dtype=np.complex64)
             if 1 in args.pol:
+                print("--| pol1")
                 foPol1_ACM = fo.create_dataset("pol1", output_shape, dtype=np.complex64)
-            if 0 and 1 in args.pol:
+            if 0 in args.pol and 1 in args.pol:
+                print("--| pol01")
                 foPol01_ACM = fo.create_dataset("pol01", output_shape, dtype=np.complex64)
+                print("--| pol10")
                 foPol10_ACM = fo.create_dataset("pol10", output_shape, dtype=np.complex64)
 
             if 0 in args.pol:
@@ -172,7 +176,8 @@ def main(args):
                         __build_singleAnt_ACM__(foPol1_ACM,fiPol1, t, idAnt,fft_size)
                     else:
                         __build_full_ACM__(foPol1_ACM, fiPol1, t, fft_size)
-            if 0 and 1 in args.pol:
+
+            if 0 in args.pol and 1 in args.pol:
                 for t in range(tlen):
                     print("t: {}/{}".format(t, tlen-1))
                     if args.freq and args.ant:
