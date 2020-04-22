@@ -1,4 +1,5 @@
 #!/usr/bin/python
+from sys import exit
 
 '''
 Module that stores transmitter locations for use by other utilities.  You can
@@ -7,7 +8,8 @@ using parse_args.
 '''
 
 known_transmitter_locations = {
-        'WWV' : [40.679917, -105.040944]
+        'WWV' : [40.679917, -105.040944],
+        'SFe' : [35.711389, -106.008333]
     }
 
 def get_transmitter_coords(name):
@@ -38,9 +40,10 @@ def parse_args(args):
     coordinates or None if no transmitter was specified.
     '''
     if args.known_transmitters:
+        print("Known transmitter locations:")
         for key in known_transmitter_locations.keys():
             print(key + ": " + str(known_transmitter_locations[key]))
-        return None
+        exit()
 
     if args.transmitter is not None and str(args.transmitter[0]) in known_transmitter_locations:
         return known_transmitter_locations[str(args.transmitter[0])]
