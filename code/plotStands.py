@@ -11,31 +11,23 @@ import numpy
 import argparse
 import math
 
-from lsl.common import stations, metabundle, metabundleADP
-
 import matplotlib.pyplot as plt
 from matplotlib.ticker import NullFormatter
-
+from lwa_common import get_bearing
+import known_transmitters
+import load_lwa_station
 
 def main(args):
+
     # Parse command line
+
+    transmitter_coords = known_transmitters.parse_args(args) 
+
     if args.markall:
-        args.stand = numpy.arange(1,256,1)
+        args.stand = numpy.arange(1,257,1)
     toMark = numpy.array(args.stand)-1
 
-    # Setup the LWA station information
-    if args.metadata is not None:
-        try:
-            station = stations.parseSSMIF(args.metadata)
-        except ValueError:
-            try:
-                station = metabundle.getStation(args.metadata, ApplySDM=True)
-            except:
-                station = metabundleADP.getStation(args.metadata, ApplySDM=True)
-    elif args.lwasv:
-        station = stations.lwasv
-    else:
-        station = stations.lwa1
+    station = load_lwa_station.parse_args(args)
     stands = station.getStands()
     stands.sort()
 
@@ -55,9 +47,13 @@ def main(args):
             min_Y = stand.y
         i += 1
     
-    # Angle of arrival of wavefront (bearing from north, clockwise)
-    tx=43.80805491642218
-    tx_rad = math.radians(tx)
+    if transmitter_coords is not None:
+        # Angle of arrival of wavefront (bearing from north, clockwise)
+        tx_rad=get_bearing(
+                [math.degrees(station.lat), math.degrees(station.long)],
+                transmitter_coords)
+        #tx=43.80805491642218
+        #tx_rad = math.radians(tx)
 
     # Color-code the stands by their elevation
     color = data[:,2]
@@ -75,8 +71,10 @@ def main(args):
     ax1.set_ylabel('$\Delta$Y [N-S; m]')
     ax1.set_ylim([-80, 80])
     ax1.set_title('%s Site:  %.3f$^\circ$N, %.3f$^\circ$W' % (station.name, station.lat*180.0/numpy.pi, -station.long*180.0/numpy.pi))
-    # Plot line perpendicular to wavefront
-    ax1.plot([min_Y*math.tan(tx_rad),max_Y*math.tan(tx_rad)], [min_Y, max_Y])
+
+    if transmitter_coords is not None:
+        # Plot line perpendicular to wavefront
+        ax1.plot([min_Y*math.tan(tx_rad),max_Y*math.tan(tx_rad)], [min_Y, max_Y])
     
     ax2.scatter(data[:,0], data[:,2], c=color, s=40.0)
     ax2.xaxis.set_major_formatter( NullFormatter() )
@@ -99,8 +97,8 @@ def main(args):
     cb = plt.colorbar(c, cax=ax4, orientation='vertical', ticks=[-2, -1, 0, 1, 2])
     
     # Set the axis limits
-    ax1.set_xlim([-60, 60])
-    ax1.set_ylim([-60, 60])
+    ax1.set_xlim([-80, 80])
+    ax1.set_ylim([-80, 80])
     ax2.set_xlim( ax1.get_xlim() )
     ax3.set_ylim( ax1.get_ylim() )
     
@@ -118,10 +116,6 @@ if __name__ == "__main__":
         )
     parser.add_argument('stand', type=int, nargs='*', 
                         help='stand number to mark')
-    parser.add_argument('-s', '--lwasv', action='store_true', 
-                        help='use LWA-SV instead of LWA1')
-    parser.add_argument('-m', '--metadata', type=str, 
-                        help='name of the SSMIF or metadata tarball file to use for mappings')
     parser.add_argument('-l', '--label', action='store_true', 
                         help='label the specified stands with their ID numbers')
     parser.add_argument('-v', '--verbose', action='store_true', 
@@ -132,6 +126,8 @@ if __name__ == "__main__":
                         help='suppress live plot')
     parser.add_argument('-a','--markall', action='store_true',
                         help='mark all stand locations. Can be used in conjunction with --label')
+    known_transmitters.add_args(parser)
+    load_lwa_station.add_args(parser)
     args = parser.parse_args()
     main(args)
     

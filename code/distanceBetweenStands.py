@@ -17,25 +17,16 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import NullFormatter
 
 import linearAlgebraTools as lat
+import load_lwa_station
 
 def main(args):
     # Parse command line
     toMark = np.array(args.stand)-1
 
-    # Setup the LWA station information
-    if args.metadata is not None:
-        try:
-            station = stations.parseSSMIF(args.metadata)
-        except ValueError:
-            try:
-                station = metabundle.getStation(args.metadata, ApplySDM=True)
-            except:
-                station = metabundleADP.getStation(args.metadata, ApplySDM=True)
-    elif args.lwasv:
-        station = stations.lwasv
-    else:
-        station = stations.lwa1
+
+    station = load_lwa_station.parse_args(args)
     stands = station.getStands()
+
 
     # data format 
     # ----| 0: stand id
@@ -183,10 +174,6 @@ if __name__ == "__main__":
         )
     parser.add_argument('stand', type=int, nargs='*', 
                         help='stand number to mark')
-    parser.add_argument('-s', '--lwasv', action='store_true', 
-                        help='use LWA-SV instead of LWA1')
-    parser.add_argument('-m', '--metadata', type=str, 
-                        help='name of the SSMIF or metadata tarball file to use for mappings')
     parser.add_argument('-v', '--verbose', action='store_true', 
                         help='run %(prog)s in verbose mode')
     parser.add_argument('-o', '--output', type=str, 
