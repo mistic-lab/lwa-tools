@@ -39,39 +39,43 @@ def main(args):
     # plot the line along the unit vector
     plt.plot([-100*tx_unit[0], 100*tx_unit[0]], [-100*tx_unit[1], 100*tx_unit[1]])
 
-    print("Reference Stand (id {0}): x = {1}, y = {2}, z = {3}".format(
-        ref_stand.id,
-        ref_stand.x,
-        ref_stand.y,
-        ref_stand.z
-        ))
-
-    plt.scatter(ref_stand.x, ref_stand.y)
+    if not args.rel_only:
+        print("Reference Stand (id {0}): x = {1}, y = {2}, z = {3}".format(
+            ref_stand.id,
+            ref_stand.x,
+            ref_stand.y,
+            ref_stand.z
+            ))
+        plt.scatter(ref_stand.x, ref_stand.y)
 
 
     for s in sec_stands:
         position = (s.x, s.y, s.z)
-        print("Secondary Stand (id {0}) position: ({1}, {2}, {3})".format(
-            s.id,
-            s.x,
-            s.y,
-            s.z
-            ))
+        if not args.rel_only:
+            print("Secondary Stand (id {0}) position: ({1}, {2}, {3})".format(
+                s.id,
+                s.x,
+                s.y,
+                s.z
+                ))
 
         # the vector from the ref stand to s
         diff_vec = np.array([s.x - ref_stand.x, s.y - ref_stand.y])
 
         # project diff_vec onto the tx unit vector
         distance = abs(np.dot(diff_vec, tx_unit))
-        if args.wavelength is not None:
-            print(u"\tDistance from reference: {0:.3f}m = {1:.3f}\u03BB".format(distance, distance/args.wavelength))
+        if args.rel_only:
+            print("{0:f}".format(distance/args.wavelength))
         else:
-            print(u"\tDistance from reference: {0:.3f}m".format(distance))
+            if args.wavelength is not None:
+                print(u"\tDistance from reference: {0:.3f}m = {1:.3f}\u03BB".format(distance, distance/args.wavelength))
+            else:
+                print(u"\tDistance from reference: {0:.3f}m".format(distance))
+            plt.scatter(s.x, s.y)
 
-        plt.scatter(s.x, s.y)
 
-
-    plt.show()
+    if not args.rel_only:
+        plt.show()
 
         
 
@@ -87,6 +91,8 @@ if __name__ == "__main__":
             help='secondary stand IDs (one or more required)')
     parser.add_argument('-l', '--wavelength', type=float,
             help='signal wavelength in meters for relative measurements')
+    parser.add_argument('-r', '--rel_only', action='store_true',
+            help="suppress output except relative distances")
     load_lwa_station.add_args(parser)
     known_transmitters.add_args(parser)
     args = parser.parse_args()
