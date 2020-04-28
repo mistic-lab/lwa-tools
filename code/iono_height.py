@@ -1,7 +1,8 @@
 #!/usr/bin/python3
 
 """
-Uses LWA data containing signals from a known transmitter to estimate effective ionospheric height.
+Uses LWA data containing signals from a known transmitter to estimate effective ionospheric height. Mostly used for prototyping - faster, more modular versions are broken out into other files.
+See: relativePhase.py
 """
 
 import argparse
@@ -65,7 +66,8 @@ def main(args):
         plt.show()
 
     ref_filtered = signal.lfilter(taps, [1], ref_signal)
-    secs_filtered = [signal.lfilter(taps, [1], s) for s in sec_signals]
+    #secs_filtered = [signal.lfilter(taps, [1], s) for s in sec_signals]
+    secs_filtered = signal.lfilter(taps, [1], sec_signals, axis=1)
     
     if input("Show spectrogram post-filtering? (y/n)") == 'y':
         plt.figure()
