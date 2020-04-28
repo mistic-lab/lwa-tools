@@ -10,9 +10,6 @@ import known_transmitters
 import load_lwa_station
 from lwa_common import get_bearing
 
-
-from IPython import embed
-
 def main(args):
 
     transmitter_coords = known_transmitters.parse_args(args)
@@ -34,19 +31,22 @@ def main(args):
     
 
     ref_stand = next(s for s in stands if s.id in args.reference_stand)
-    sec_stands = [s for s in stands if s.id in args.secondary_stands]
-
-    # plot the line along the unit vector
-    plt.plot([-100*tx_unit[0], 100*tx_unit[0]], [-100*tx_unit[1], 100*tx_unit[1]])
+    sec_stands = [s for s in stands for t in args.secondary_stands if s.id == t]
 
     if not args.rel_only:
+        # plot the line along the unit vector
+        plt.plot([-100*tx_unit[0], 100*tx_unit[0]], [-100*tx_unit[1], 100*tx_unit[1]])
+
         print("Reference Stand (id {0}): x = {1}, y = {2}, z = {3}".format(
             ref_stand.id,
             ref_stand.x,
             ref_stand.y,
             ref_stand.z
             ))
-        plt.scatter(ref_stand.x, ref_stand.y)
+        plt.scatter(ref_stand.x, ref_stand.y, color='black')
+        plt.annotate(str(ref_stand.id), (ref_stand.x, ref_stand.y),
+                xytext=(ref_stand.x+1, ref_stand.y+1))
+        
 
 
     for s in sec_stands:
@@ -63,15 +63,18 @@ def main(args):
         diff_vec = np.array([s.x - ref_stand.x, s.y - ref_stand.y])
 
         # project diff_vec onto the tx unit vector
-        distance = abs(np.dot(diff_vec, tx_unit))
+        distance = np.dot(diff_vec, tx_unit)
         if args.rel_only:
             print("{0:f}".format(distance/args.wavelength))
         else:
             if args.wavelength is not None:
                 print(u"\tDistance from reference: {0:.3f}m = {1:.3f}\u03BB".format(distance, distance/args.wavelength))
+                an_string = u"{0} - {1:.3f}\u03BB".format(s.id, distance/args.wavelength)
             else:
                 print(u"\tDistance from reference: {0:.3f}m".format(distance))
+                an_string = str(s.id)
             plt.scatter(s.x, s.y)
+            plt.annotate(an_string, (s.x, s.y), xytext=(s.x+1, s.y+1))
 
 
     if not args.rel_only:
@@ -83,7 +86,8 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
             description='Find the distances between stands along the wavevector',
-            formatter_class=argparse.ArgumentDefaultsHelpFormatter
+            formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+            fromfile_prefix_chars='@'            
             )
     parser.add_argument('reference_stand', type=int, nargs=1,
             help='reference (zero-phase) stand ID')
