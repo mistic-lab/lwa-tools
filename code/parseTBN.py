@@ -20,7 +20,7 @@ from lsl.common import stations
 
 import arrUtils
 
-def extract_multiple_ants(input_file, dp_stand_ids, polarization, max_length=-1):
+def extract_multiple_ants(input_file, dp_stand_ids, polarization, max_length=-1, truncate=True):
     """Extract and combine all data from a list of antenna into an array of numpy arrays.
 
     Parameters
@@ -33,6 +33,8 @@ def extract_multiple_ants(input_file, dp_stand_ids, polarization, max_length=-1)
                 antenna polarization
     max_length : int
                 length in samples to extract
+    truncate : boolean
+                discard later frames so all antennas have the same number
 
     Returns
     -------
@@ -54,7 +56,7 @@ def extract_multiple_ants(input_file, dp_stand_ids, polarization, max_length=-1)
     print("-| {} antennas in file".format(num_ants))
     print("-| {} samples per frame".format(samps_per_frame))
     print("--| Extracting from stands {}, pol {}".format(dp_stand_ids, polarization))
-    print("--| Extracting {} of a possible {} samples for each stand".format(max_length, max_possible_length))
+    print("--| Attempting to extract {} of a possible {} samples for each stand".format(max_length, max_possible_length))
 
     output_data = [[] for i in range(len(dp_stand_ids))]
 
@@ -63,9 +65,8 @@ def extract_multiple_ants(input_file, dp_stand_ids, polarization, max_length=-1)
         try:
             current_frame = input_data.readFrame()
         except errors.eofError:
-            lens = [len(i) for i in output_data]
-            print("sum({}) = {}".format(lens, sum(lens)))
-            raise errors.eofError
+            print("--| EOF reached before maximum length.")
+            break
 
         current_id = current_frame.parseID()
 
@@ -80,6 +81,15 @@ def extract_multiple_ants(input_file, dp_stand_ids, polarization, max_length=-1)
                     output_data[out_index].extend(current_frame.data.iq)
 
                 break
+
+    
+    lens = [len(v) for v in output_data]
+    min_len = min(lens)
+
+    # if the lengths are unequal then truncate long ones
+    if truncate and lens.count(min_len) != len(output_data):
+        print("--| Truncating lengths from {} to {}".format(lens, min_len))
+        output_data = [v[0:min_len] for v in output_data]
 
     output_data = np.array(output_data)
     return output_data

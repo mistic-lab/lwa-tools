@@ -23,8 +23,6 @@ def main(args):
     print("-| Carrier frequency: {}".format(f_c))
     print("-| Downmixed carrier frequency: {}".format(f_c_dm))
 
-    n_frames = n_frames // 2
-
     print("\nFetching signals")
 
     # extract the reference signal
