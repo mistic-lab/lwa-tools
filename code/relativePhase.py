@@ -4,9 +4,9 @@ Computes relative phase between antennas from LWA data.
 
 import numpy as np
 import argparse
-from multiprocessing import Pool
+import multiprocessing as mp
 from scipy import signal
-from parseTBN import extract_single_ant, pull_meta
+from parseTBN import extract_single_ant, extract_multiple_ants, pull_meta
 from cable_delay import get_cable_delay
 import load_lwa_station
 
@@ -23,20 +23,30 @@ def main(args):
     print("-| Carrier frequency: {}".format(f_c))
     print("-| Downmixed carrier frequency: {}".format(f_c_dm))
 
-    # create an array for the signals to go in
-    sigs = np.empty((1 + len(args.secondary_stands), n_frames), dtype=np.complex64)
+    n_frames = n_frames // 2
 
     print("\nFetching signals")
 
     # extract the reference signal
-    print("-| Extracting reference signal for stand {}".format(args.ref_stand))
-    print("-| Extracting secondary signals for stands {}".format(args.secondary_stands))
-    p = Pool()
-    results = [p.apply_async(extract_single_ant, (args.data_filename, stand, args.pol),{'max_length': n_frames}) for stand in [args.ref_stand] + args.secondary_stands]
-    p.close()
-    p.join()
 
-    sigs = np.array([s.get() for s in results])
+    ## Try something faster ?
+    #print("-| Extracting reference signal for stand {}".format(args.ref_stand))
+    #sigs[0] = extract_single_ant(args.data_filename, args.ref_stand, args.pol, max_length=n_frames)
+    #for k,stand in enumerate(args.secondary_stands):
+    #    print("-| Extracting secondary signal for stand {}".format(stant))
+    #    sigs[k+1] = extract_single_ant(args.data_filename, stand, args.pol, max_lenght=n_frames)
+        
+    ## this is faster sometimes but also isn't working on cedar most of the time
+    #num_workers = min(mp.cpu_count(), len(args.secondary_stands) + 1) 
+    #print("-| Allocating pool of {} worker processes.".format(num_workers))
+    #p = mp.Pool(num_workers)
+    #results = [p.apply_async(extract_single_ant, (args.data_filename, stand, args.pol),{'max_length': n_frames}) for stand in [args.ref_stand] + args.secondary_stands]
+    #p.close()
+    #p.join()
+    #sigs = np.array([s.get() for s in results])
+
+    ## new strategy...
+    sigs = extract_multiple_ants(args.data_filename, [args.ref_stand] + args.secondary_stands, args.pol, max_length=n_frames)
 
     print("\nBandpass filtering")
     # construct bandpass filter by shifting up a lowpass filter

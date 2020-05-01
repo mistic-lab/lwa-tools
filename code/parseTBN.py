@@ -14,11 +14,76 @@ from datetime import datetime
 import h5py
 import math
 
-from lsl.reader import tbn
+from lsl.reader import tbn, errors
 from lsl.reader.ldp import LWASVDataFile
 from lsl.common import stations
 
 import arrUtils
+
+def extract_multiple_ants(input_file, dp_stand_ids, polarization, max_length=-1):
+    """Extract and combine all data from a list of antenna into an array of numpy arrays.
+
+    Parameters
+    ----------
+    input_file : string
+                raw LWA-SV file path
+    dp_stand_ids : list
+                list of stand ids from 1 to 256 inclusive
+    polarization : list
+                antenna polarization
+    max_length : int
+                length in samples to extract
+
+    Returns
+    -------
+    numpy array
+        array of size (avail frames, bandwidth)
+    """
+
+    input_data = LWASVDataFile(input_file)
+
+    total_frames = input_data.getRemainingFrameCount()
+    num_ants = input_data.getInfo()['nAntenna']
+    samps_per_frame = 512
+    max_possible_length = math.ceil( total_frames / num_ants ) * samps_per_frame
+
+    if max_length < 0:
+        max_length = max_possible_length
+
+    print("-| {} frames in file".format(total_frames))
+    print("-| {} antennas in file".format(num_ants))
+    print("-| {} samples per frame".format(samps_per_frame))
+    print("--| Extracting from stands {}, pol {}".format(dp_stand_ids, polarization))
+    print("--| Extracting {} of a possible {} samples for each stand".format(max_length, max_possible_length))
+
+    output_data = [[] for i in range(len(dp_stand_ids))]
+
+    # while input_data.getRemainingFrameCount() > 0:
+    while any([len(i) < max_length for i in output_data]):
+        try:
+            current_frame = input_data.readFrame()
+        except errors.eofError:
+            lens = [len(i) for i in output_data]
+            print("sum({}) = {}".format(lens, sum(lens)))
+            raise errors.eofError
+
+        current_id = current_frame.parseID()
+
+        # check if this frame is one we want
+        matching_stand = next((s for s in dp_stand_ids if (s, polarization) == current_id), -1)
+
+        for s in dp_stand_ids:
+            if (s, polarization) == current_id:
+                out_index = dp_stand_ids.index(matching_stand)
+
+                if len(output_data[out_index]) < max_length:
+                    output_data[out_index].extend(current_frame.data.iq)
+
+                break
+
+    output_data = np.array(output_data)
+    return output_data
+
 
 
 def extract_single_ant(input_file, dp_stand_id, polarization, max_length=-1):
