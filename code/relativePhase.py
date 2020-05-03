@@ -25,25 +25,7 @@ def main(args):
 
     print("\nFetching signals")
 
-    # extract the reference signal
-
-    ## Try something faster ?
-    #print("-| Extracting reference signal for stand {}".format(args.ref_stand))
-    #sigs[0] = extract_single_ant(args.data_filename, args.ref_stand, args.pol, max_length=n_frames)
-    #for k,stand in enumerate(args.secondary_stands):
-    #    print("-| Extracting secondary signal for stand {}".format(stant))
-    #    sigs[k+1] = extract_single_ant(args.data_filename, stand, args.pol, max_lenght=n_frames)
-        
-    ## this is faster sometimes but also isn't working on cedar most of the time
-    #num_workers = min(mp.cpu_count(), len(args.secondary_stands) + 1) 
-    #print("-| Allocating pool of {} worker processes.".format(num_workers))
-    #p = mp.Pool(num_workers)
-    #results = [p.apply_async(extract_single_ant, (args.data_filename, stand, args.pol),{'max_length': n_frames}) for stand in [args.ref_stand] + args.secondary_stands]
-    #p.close()
-    #p.join()
-    #sigs = np.array([s.get() for s in results])
-
-    ## new strategy...
+    # extract the signals
     sigs = extract_multiple_ants(args.data_filename, [args.ref_stand] + args.secondary_stands, args.pol, max_length=n_frames)
 
     print("\nBandpass filtering")
@@ -63,20 +45,28 @@ def main(args):
     print("\nCorrecting for cable delays")
     print("-| Loading phase delay data")
     stn = load_lwa_station.parse_args(args)
-    ref_cable_phase = get_cable_delay(stn, args.ref_stand, args.pol, f_c)
-    sec_cable_phases = [get_cable_delay(stn, s, args.pol, f_c) for s in args.secondary_stands]
+    cable_phases = np.array([[get_cable_delay(stn, s, args.pol, f_c)]
+            for s in [args.ref_stand] + args.secondary_stands])
 
-
-    print("-| Computing cable-induced phase differences")
-    cable_phase_diffs = np.array([[ref_cable_phase - scp] for scp in sec_cable_phases])
 
     print("-| Correcting secondary phases")
     # correct the phases by shifting the according to the cable phases 
-    sec_sigs_cable_corrected = np.conj(sigs[1:]) * np.exp(-1j * cable_phase_diffs)
+    sigs_cable_corrected = sigs * np.exp(-1j * cable_phases)
+
+    if args.absolute:
+        print("\nSaving absolute phases (enabled with -a/--absolute)")
+        ab_filename = "abs_phase_" + args.data_filename.split("/")[-1].split('.')[0] + ".npz"
+        print("-| Target file: {}".format(ab_filename))
+        with open(ab_filename, 'w') as f:
+            arg_dict = dict(zip([str(s) for s in [args.ref_stand] + args.secondary_stands], np.angle(sigs_cable_corrected)))
+            print("-| Writing data")
+            np.savez(f, **arg_dict)
 
     print("\nComputing phase differences")
     # make it all relative to the reference signal
-    phase_diffs = np.angle(sec_sigs_cable_corrected * sigs[0])
+    c = cable_phases[0] - cable_phases[1:]
+    #phase_diffs = np.angle(sigs[0] * np.conj(sigs[1:]) * np.exp(1j * c))
+    phase_diffs = np.angle(sigs_cable_corrected[0] * np.conj(sigs_cable_corrected[1:]))
 
     print("\nSaving computed differences")
     save_filename = "rel_phase_" + args.data_filename.split('/')[-1].split('.')[0]
@@ -106,6 +96,8 @@ if __name__ == "__main__":
             help='secondary stand numbers')
     parser.add_argument('-p', '--pol', type=int, choices=[0,1],
             help='polarization to use', default=0)
+    parser.add_argument('-a', '--absolute', action='store_true',
+            help='dump aboslute phases before filtering')
     load_lwa_station.add_args(parser)
     args = parser.parse_args()
     

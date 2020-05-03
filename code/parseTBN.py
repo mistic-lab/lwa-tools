@@ -58,10 +58,13 @@ def extract_multiple_ants(input_file, dp_stand_ids, polarization, max_length=-1,
     print("--| Extracting from stands {}, pol {}".format(dp_stand_ids, polarization))
     print("--| Attempting to extract {} of a possible {} samples for each stand".format(max_length, max_possible_length))
 
-    output_data = [[] for i in range(len(dp_stand_ids))]
+    # preallocate data array a little bigger than we think the longest signal will be
+    output_data = np.empty((len(dp_stand_ids), int(max_length*1.2) + 1), dtype=np.complex64)
+
+    fill_levels = [0] * len(dp_stand_ids)
 
     # while input_data.getRemainingFrameCount() > 0:
-    while any([len(i) < max_length for i in output_data]):
+    while any([l < max_length for l in fill_levels]):
         try:
             current_frame = input_data.readFrame()
         except errors.eofError:
@@ -77,21 +80,21 @@ def extract_multiple_ants(input_file, dp_stand_ids, polarization, max_length=-1,
             if (s, polarization) == current_id:
                 out_index = dp_stand_ids.index(matching_stand)
 
-                if len(output_data[out_index]) < max_length:
-                    output_data[out_index].extend(current_frame.data.iq)
+                if fill_levels[out_index] < max_length:
+                    wr_idx = fill_levels[out_index]
+                    output_data[out_index][wr_idx:wr_idx + samps_per_frame] = current_frame.data.iq
+                    fill_levels[out_index] += samps_per_frame
 
                 break
 
     
-    lens = [len(v) for v in output_data]
-    min_len = min(lens)
+    min_fill = min(fill_levels)
 
     # if the lengths are unequal then truncate long ones
-    if truncate and lens.count(min_len) != len(output_data):
-        print("--| Truncating lengths from {} to {}".format(lens, min_len))
-        output_data = [v[0:min_len] for v in output_data]
+    if truncate and fill_levels.count(min_fill) != len(fill_levels):
+        print("--| Truncating lengths from {} to {}".format(fill_levels, min_fill))
+        return output_data[:, :min_fill]
 
-    output_data = np.array(output_data)
     return output_data
 
 
