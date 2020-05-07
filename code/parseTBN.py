@@ -43,7 +43,6 @@ def generate_multiple_ants(input_file, dp_stand_ids, polarization, chunk_length=
     numpy array
         array of size (avail frames, bandwidth)
     """
-
     input_data = LWASVDataFile(input_file)
 
     total_frames = input_data.getRemainingFrameCount()
@@ -61,12 +60,18 @@ def generate_multiple_ants(input_file, dp_stand_ids, polarization, chunk_length=
     print("--| There are possibly {} samples for each stand".format(max_possible_length))
     print("--| Returning data in chunks of length {}".format(chunk_length))
 
+    if chunk_length < samps_per_frame:
+        raise ValueError("--| Error: chunk size ({}) must be larger than frame size ({} samples)".format(chunk_length, samps_per_frame))
+
     # preallocate array to hold the current chunk of data. leave some space for overflow
     chunk_buffer = np.empty((len(dp_stand_ids), int(chunk_length * 2)), dtype=np.complex64)
 
     done = False
     samples_sent = 0
     file_ended = False
+    compensating_start_times = True
+    dropped_frames = 0
+    start_times = [0] * len(dp_stand_ids)
     fill_levels = [0] * len(dp_stand_ids)
 
     while not done: 
@@ -83,10 +88,21 @@ def generate_multiple_ants(input_file, dp_stand_ids, polarization, chunk_length=
             for out_idx, stand in enumerate(dp_stand_ids):
                 if (stand, polarization) == current_id:
                     # this is the right stand, add to the buffer
-                    wr_idx = fill_levels[out_idx]
-                    chunk_buffer[out_idx][wr_idx:wr_idx + samps_per_frame] = current_frame.data.iq
-                    fill_levels[out_idx] += samps_per_frame
-                    break
+                    if compensating_start_times:
+                        time = current_frame.getTime()
+                        print(time, start_times)
+                        if time >= max(start_times):
+                            start_times[out_idx] = time
+                            chunk_buffer[out_idx][:samps_per_frame] = current_frame.data.iq
+                            fill_levels[out_idx] = samps_per_frame
+                        if start_times.count(start_times[0]) == len(start_times) and start_times[0] > 0:
+                            compensating_start_times = False
+                            print("--| Start times match at time {:f}".format(time))
+                    else:
+                        wr_idx = fill_levels[out_idx]
+                        chunk_buffer[out_idx][wr_idx:wr_idx + samps_per_frame] = current_frame.data.iq
+                        fill_levels[out_idx] += samps_per_frame
+                        break
          
         if samples_sent + chunk_length >= max_length:
             # this is the last chunk
@@ -113,7 +129,6 @@ def generate_multiple_ants(input_file, dp_stand_ids, polarization, chunk_length=
                 if fill_levels[i] > chunk_length:
                     # copy the extra samples to the start of the buffer
                     overflow_length = fill_levels[i] - chunk_length
-                    print(i, overflow_length)
                     chunk_buffer[i][0:overflow_length] = chunk_buffer[i][chunk_length:fill_levels[i]]
                     # start the next read after the extra samples
                     fill_levels[i] = overflow_length
