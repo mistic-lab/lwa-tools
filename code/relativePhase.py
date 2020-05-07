@@ -4,9 +4,9 @@ Computes relative phase between antennas from LWA data.
 
 import numpy as np
 import argparse
-import multiprocessing as mp
+import h5py
 from scipy import signal
-from parseTBN import extract_single_ant, extract_multiple_ants, pull_meta
+from parseTBN import extract_single_ant, extract_multiple_ants, pull_meta, generate_multiple_ants
 from cable_delay import get_cable_delay
 import load_lwa_station
 
@@ -22,13 +22,9 @@ def main(args):
     print("-| Sample rate: {}".format(f_s))
     print("-| Carrier frequency: {}".format(f_c))
     print("-| Downmixed carrier frequency: {}".format(f_c_dm))
+    
+    print("\n Preparing to process data")
 
-    print("\nFetching signals")
-
-    # extract the signals
-    sigs = extract_multiple_ants(args.data_filename, [args.ref_stand] + args.secondary_stands, args.pol, max_length=n_frames)
-
-    print("\nBandpass filtering")
     # construct bandpass filter by shifting up a lowpass filter
     cutoff = 500 #Hz
     num_taps = 500
@@ -36,47 +32,61 @@ def main(args):
     taps = signal.firwin(num_taps, cutoff/f_s)
     shifts = np.array([np.exp(1j * 2 * np.pi * f_c_dm / f_s * n) for n in range(len(taps))])
     taps = taps * shifts
-    
-    # filter the signals
-    print("-| Filtering")
-    sigs = signal.lfilter(taps, [1], sigs, axis=1)
 
-    # need to account for the phase shift introduced by the cable delays
-    print("\nCorrecting for cable delays")
     print("-| Loading phase delay data")
     stn = load_lwa_station.parse_args(args)
     cable_phases = np.array([[get_cable_delay(stn, s, args.pol, f_c)]
             for s in [args.ref_stand] + args.secondary_stands])
 
 
-    print("-| Correcting secondary phases")
-    # correct the phases by shifting the according to the cable phases 
-    sigs_cable_corrected = sigs * np.exp(-1j * cable_phases)
+    save_filename = "phase_" + args.data_filename.split('/')[-1].split('.')[0]
+    save_filename = save_filename + "_r" + str(args.ref_stand) + ".hdf5"
+    print("-| Creating output file:".format(save_filename))
+    f = h5py.File(save_filename, 'w')
 
+    f.create_group('relative')
     if args.absolute:
-        print("\nSaving absolute phases (enabled with -a/--absolute)")
-        ab_filename = "abs_phase_" + args.data_filename.split("/")[-1].split('.')[0] + ".npz"
-        print("-| Target file: {}".format(ab_filename))
-        with open(ab_filename, 'w') as f:
-            arg_dict = dict(zip([str(s) for s in [args.ref_stand] + args.secondary_stands], np.angle(sigs_cable_corrected)))
-            print("-| Writing data")
-            np.savez(f, **arg_dict)
+        f.create_group('absolute')
+        f['absolute'].create_dataset(str(args.ref_stand), (0,), maxshape=(None,), dtype='f4')
 
-    print("\nComputing phase differences")
-    # make it all relative to the reference signal
-    c = cable_phases[0] - cable_phases[1:]
-    #phase_diffs = np.angle(sigs[0] * np.conj(sigs[1:]) * np.exp(1j * c))
-    phase_diffs = np.angle(sigs_cable_corrected[0] * np.conj(sigs_cable_corrected[1:]))
+    for stand in args.secondary_stands:
+        if args.absolute:
+            f['absolute'].create_dataset(str(stand), (0,), maxshape=(None,), dtype='f4')
+        f['relative'].create_dataset(str(stand), (0,), maxshape=(None,), dtype='f4')
 
-    print("\nSaving computed differences")
-    save_filename = "rel_phase_" + args.data_filename.split('/')[-1].split('.')[0]
-    save_filename = save_filename + "_r" + str(args.ref_stand) + ".npz"
-    print("-| Target file: {}".format(save_filename))
 
-    with open(save_filename, 'w') as f:
-        arg_dict = dict(zip([str(s) for s in args.secondary_stands], phase_diffs))
-        print("-| Writing data")
-        np.savez(f, **arg_dict)
+    print("\nFetching signals")
+
+    for n, sigs in enumerate(generate_multiple_ants(args.data_filename, [args.ref_stand] + args.secondary_stands, args.pol, max_length=n_frames, chunk_length=args.chunk_size)):
+        print("-| Processing chunk {}".format(n))
+
+        #filter the signals
+        if n == 0:
+            first_samples = sigs.take([0], axis=1)
+            state = signal.lfilter_zi(taps, [1]) * first_samples
+
+        sigs, state = signal.lfilter(taps, [1], sigs, axis=1, zi=state)
+
+        # correct the phases by shifting the according to the cable phases 
+        sigs_cable_corrected = sigs * np.exp(-1j * cable_phases)
+
+        if args.absolute:
+            for stand, phase in zip([args.ref_stand] + args.secondary_stands, np.angle(sigs_cable_corrected)):
+                stand = str(stand)
+                shape = f['absolute'][stand].shape
+                pl = len(phase)
+                f['absolute'][stand].resize((shape[0] + pl,))
+                f['absolute'][stand][-pl:] = phase
+
+        phase_diffs = np.angle(sigs_cable_corrected[0] * np.conj(sigs_cable_corrected[1:]))
+
+        for stand, phase in zip(args.secondary_stands, phase_diffs):
+            stand = str(stand)
+            shape = f['relative'][stand].shape
+            pl = len(phase)
+            f['relative'][stand].resize((shape[0] + pl,))
+            f['relative'][stand][-pl:] = phase
+
 
     print("\nDONE")
 
@@ -98,6 +108,8 @@ if __name__ == "__main__":
             help='polarization to use', default=0)
     parser.add_argument('-a', '--absolute', action='store_true',
             help='dump aboslute phases before filtering')
+    parser.add_argument('-c', '--chunk_size', type=int,
+            help='size of chunks to read from the TBN file', default=2**20)
     load_lwa_station.add_args(parser)
     args = parser.parse_args()
     

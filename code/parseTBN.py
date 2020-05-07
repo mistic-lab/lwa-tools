@@ -90,7 +90,6 @@ def generate_multiple_ants(input_file, dp_stand_ids, polarization, chunk_length=
                     # this is the right stand, add to the buffer
                     if compensating_start_times:
                         time = current_frame.getTime()
-                        print(time, start_times)
                         if time >= max(start_times):
                             start_times[out_idx] = time
                             chunk_buffer[out_idx][:samps_per_frame] = current_frame.data.iq
