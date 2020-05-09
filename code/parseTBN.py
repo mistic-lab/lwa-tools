@@ -99,6 +99,11 @@ def generate_multiple_ants(input_file, dp_stand_ids, polarization, chunk_length=
                             print("--| Start times match at time {:f}".format(time))
                     else:
                         wr_idx = fill_levels[out_idx]
+                        if wr_idx + samps_per_frame > chunk_buffer.shape[1]:
+                            extend_by = max(int(0.2 * chunk_buffer.shape[1]), samps_per_frame)
+                            extension = np.empty((chunk_buffer.shape[0], extend_by))
+                            print("Chunk buffer overflowed, increasing length from {} to {}".format(chunk_buffer.shape[1], chunk_buffer.shape[1] + extend_by))
+                            chunk_buffer = np.concatenate((chunk_buffer, extension), axis=1)
                         chunk_buffer[out_idx][wr_idx:wr_idx + samps_per_frame] = current_frame.data.iq
                         fill_levels[out_idx] += samps_per_frame
                         break
