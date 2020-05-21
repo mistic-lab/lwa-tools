@@ -181,8 +181,8 @@ def main(args):
                 for t in range(tlen):
                     print("t: {}/{}".format(t, tlen-1))
                     if args.freq and args.ant:
-                        __build_singleFreq_singleAnt_dualPol_ACM__(foPol1_ACM,fiPol0, fiPol1, t, idAnt,fBin)
-                        __build_singleFreq_singleAnt_dualPol_ACM__(foPol1_ACM,fiPol1, fiPol0, t, idAnt,fBin)
+                        __build_singleFreq_singleAnt_dualPol_ACM__(foPol1_ACM,fiPol0, fiPol1, t, idAnt, fBin)
+                        __build_singleFreq_singleAnt_dualPol_ACM__(foPol1_ACM,fiPol1, fiPol0, t, idAnt, fBin)
                     elif args.freq and not args.ant:
                         __build_singleFreq_dualPol_ACM__(foPol01_ACM, fiPol0, fiPol1, t, fBin)
                         __build_singleFreq_dualPol_ACM__(foPol10_ACM, fiPol1, fiPol0, t, fBin)
