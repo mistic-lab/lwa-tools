@@ -140,7 +140,7 @@ with h5py.File(output_file, "w") as f:
     
     # Create a subdataset for each polarization
     print("-| Creating datasets full of zeros")
-    pol0 = parent.create_dataset("pol0", maxshape=output_shape, dtype=np.complex64)#, compression='lzf')
+    pol0 = parent.create_dataset("pol0", output_shape, maxshape=(num_ants, None), dtype=np.complex64)#, compression='lzf')
     
     # For progress bar
     totalFrames = input_data.getRemainingFrameCount()
