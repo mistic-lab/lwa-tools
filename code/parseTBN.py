@@ -218,37 +218,38 @@ def count_frames(filename):
     print("---> Sum of antennas = {}".format(sum(antsFramesDict.keys())))
 
 
-def get_min_frame_count(filename):
-    """Prints out smallest frame count of all antennas.
+#! shouldnt be used. horrible and slow as heeeell. Just preallocate and then truncate after.
+# def get_min_frame_count(filename):
+#     """Prints out smallest frame count of all antennas.
 
-    Parameters
-    ----------
-    filename : string
-                name of file to be read (may end in dat, tbn, or nothing)
+#     Parameters
+#     ----------
+#     filename : string
+#                 name of file to be read (may end in dat, tbn, or nothing)
 
-    Returns
-    -------
-    int
-        minimum number of frames available
-    """
+#     Returns
+#     -------
+#     int
+#         minimum number of frames available
+#     """
 
-    bigDict = {}
+#     bigDict = {}
 
-    idfN = LWASVDataFile(filename)
+#     idfN = LWASVDataFile(filename)
 
-    while idfN.getRemainingFrameCount() > 0:
-        current_frame = idfN.readFrame()
-        # key = str(current_frame.parseID())
-        key = current_frame.parseID()
+#     while idfN.getRemainingFrameCount() > 0:
+#         current_frame = idfN.readFrame()
+#         # key = str(current_frame.parseID())
+#         key = current_frame.parseID()
         
-        try:
-            bigDict[key] += 1
-        except KeyError:
-            bigDict[key] = 1
+#         try:
+#             bigDict[key] += 1
+#         except KeyError:
+#             bigDict[key] = 1
 
-    min_count = min(bigDict.values())
+#     min_count = min(bigDict.values())
 
-    return min_count
+#     return min_count
 
 
 

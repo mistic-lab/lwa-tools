@@ -70,7 +70,7 @@ def main(args):
 
         fiParent = fi[input_filename]
         fiPol0 = fiParent['pol0']
-        fiPol1 = fiParent['pol1']
+        # fiPol1 = fiParent['pol1']
 
 
 
@@ -103,7 +103,7 @@ def main(args):
             # Create a subdataset for each polarization
             print("-| Creating datasets full of zeros")
             foPol0 = fo.create_dataset("pol0", output_shape, dtype=np.complex64)#, compression='lzf')
-            foPol1 = fo.create_dataset("pol1", output_shape, dtype=np.complex64)#, compression='lzf')
+            # foPol1 = fo.create_dataset("pol1", output_shape, dtype=np.complex64)#, compression='lzf')
 
             times = np.linspace(0, output_shape[1]*args.nfft*args.navg/fs, output_shape[1], endpoint=False)+fo.attrs['tStart']
             freqs = np.linspace(-fs/2, fs/2, args.nfft, endpoint=False)+fc
@@ -114,7 +114,7 @@ def main(args):
             for i in range(len(fiPol0)):
                 print("Antenna {}/{}".format(i+1,len(fiPol0)))
                 foPol0[i] = quick_pfb(fiPol0[i],args.nfft, args.navg)
-                foPol1[i] = quick_pfb(fiPol1[i],args.nfft, args.navg)
+                # foPol1[i] = quick_pfb(fiPol1[i],args.nfft, args.navg)
 
 
 
