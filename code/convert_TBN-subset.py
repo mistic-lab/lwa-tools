@@ -8,11 +8,11 @@ import argparse
 from datetime import datetime
 import h5py
 import time
+import math
 
 from lsl.reader.ldp import LWASVDataFile
-from lsl.common import stations
 
-from parseTBN import get_min_frame_count
+# from parseTBN import get_min_frame_count
 
 
 def printProgressBar(iteration, total, prefix='', suffix='', decimals=1,
@@ -39,32 +39,33 @@ def printProgressBar(iteration, total, prefix='', suffix='', decimals=1,
     if iteration == total:
         print()
 
-def isFrameLimited(start, length, frames_cap):
-    """Checks whether there's space in an array for another frame. 
+# def isFrameLimited(start, length, frames_cap):
+#     """Checks whether there's space in an array for another frame. 
 
-    Parameters
-    ----------
-    start : int
-                start index where the frame would be written
-    length : int
-                length of the frame to be written
-    frames_cap : int
-                frame limit at which to stop writing (frames are of size len(data))
+#     Parameters
+#     ----------
+#     start : int
+#                 start index where the frame would be written
+#     length : int
+#                 length of the frame to be written
+#     frames_cap : int
+#                 frame limit at which to stop writing (frames are of size len(data))
 
-    Returns
-    -------
-    boolean
-        True if the array will overflow, False if there is space.
-    """
-    num_frames = (start + length) / length
-    if frames_cap < num_frames:
-        return True
-    else:
-        return False
-
-
+#     Returns
+#     -------
+#     boolean
+#         True if the array will overflow, False if there is space.
+#     """
+#     num_frames = (start + length) / length
+#     if frames_cap < num_frames:
+#         return True
+#     else:
+#         return False
 
 
+
+
+start = time.time()
 
 
 
@@ -81,7 +82,6 @@ input_filename = '058846_000123426'
 num_ants = len(desired_dp_stands)
 
 
-start = time.time()
 
 print("\nChecking input data")
 input_data = LWASVDataFile(input_file)
@@ -105,21 +105,21 @@ print("\nChecking input data again")
 input_data = LWASVDataFile(input_file)
 
 
-
 # For getting output array size
-lwasv = stations.lwasv
-min_frames = get_min_frame_count(input_file)
-
-print("-| Minimum number of frames is: {}".format(min_frames))
-print("-| Number of antennas to be extracted: {}".format(num_ants))
-
+total_frames = input_data.getRemainingFrameCount()
 # Annoying to do this here
 current_frame = input_data.readFrame()
 iq_size = len(current_frame.data.iq)
+max_possible_length = int(math.ceil( total_frames / input_data.getInfo()['nAntenna'] ) * iq_size)
+
+print("-| Maximum number of frames is: {}".format(max_possible_length))
+print("-| Number of antennas to be extracted: {}".format(num_ants))
 
 # Shape is the datasize plus 1 for a counter at each element
-output_shape = (num_ants, min_frames * iq_size)
+output_shape = (num_ants, max_possible_length)
 pol0_counters = np.zeros(num_ants, dtype=int)
+fill_amts = np.zeros(num_ants, dtype=int)
+
 print("-| Shape of each output dataset will be {}".format(output_shape))
 
 print("\nCreating and opening output file")
@@ -140,7 +140,7 @@ with h5py.File(output_file, "w") as f:
     
     # Create a subdataset for each polarization
     print("-| Creating datasets full of zeros")
-    pol0 = parent.create_dataset("pol0", output_shape, dtype=np.complex64)#, compression='lzf')
+    pol0 = parent.create_dataset("pol0", maxshape=output_shape, dtype=np.complex64)#, compression='lzf')
     
     # For progress bar
     totalFrames = input_data.getRemainingFrameCount()
@@ -163,17 +163,26 @@ with h5py.File(output_file, "w") as f:
             if y_index == 0:
                 pol0.attrs[str(frame_dp_stand_id)+'_index'] = mapping[frame_dp_stand_id]
             
-            if not isFrameLimited(y_index, len(frameData), min_frames):
-                data_start = y_index
-                data_end = data_start+len(frameData)
+            # if not isFrameLimited(y_index, len(frameData), min_frames):
+            data_start = y_index
+            data_end = data_start+len(frameData)
 
-                pol0[x_index, data_start:data_end] = frameData
+            pol0[x_index, data_start:data_end] = frameData
 
-                pol0_counters[x_index] = data_end
+            pol0_counters[x_index] = data_end
+
+            fill_amts[x_index]+=len(frameData)
 
 
         # Get frame for next iteration
         current_frame = input_data.readFrame()
+
+    # Trim down dataset
+    min_fill = min(fill_amts)
+    output_shape = (num_ants, min_fill)
+    pol0.resize(output_shape)
+
+
 
 print("\nDONE")
 
