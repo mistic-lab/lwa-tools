@@ -238,10 +238,11 @@ def get_min_frame_count(filename):
 
     while idfN.getRemainingFrameCount() > 0:
         current_frame = idfN.readFrame()
-        key = str(current_frame.parseID())
+        # key = str(current_frame.parseID())
+        key = current_frame.parseID()
         
         try:
-            bigDict[key] = bigDict[key] + 1
+            bigDict[key] += 1
         except KeyError:
             bigDict[key] = 1
 

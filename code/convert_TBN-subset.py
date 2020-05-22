@@ -86,11 +86,29 @@ start = time.time()
 print("\nChecking input data")
 input_data = LWASVDataFile(input_file)
 
+print("\nFinding earliest startTime for all antennas")
+IDtimes = {key:0 for key in desired_parseIDs}
+donezo = False
+while donezo == False:
+    current_frame = input_data.readFrame()
+    if current_frame.parseID() in desired_parseIDs:
+        IDtimes[current_frame.parseID()] = current_frame.getTime()
+        if len(set(IDtimes.values()))==1:
+            donezo=True
+startTime = IDtimes[desired_parseIDs[0]]
+print("-| Start Time is: {}".format(startTime))
+del IDtimes, donezo
+
+input_data.close() # gotta do this so I don't start partway through
+
+print("\nChecking input data again")
+input_data = LWASVDataFile(input_file)
+
+
+
 # For getting output array size
 lwasv = stations.lwasv
 min_frames = get_min_frame_count(input_file)
-# num_stands = len(lwasv.getStands())
-# num_ants_total = num_stands/2
 
 print("-| Minimum number of frames is: {}".format(min_frames))
 print("-| Number of antennas to be extracted: {}".format(num_ants))
@@ -102,7 +120,6 @@ iq_size = len(current_frame.data.iq)
 # Shape is the datasize plus 1 for a counter at each element
 output_shape = (num_ants, min_frames * iq_size)
 pol0_counters = np.zeros(num_ants, dtype=int)
-start_times = {}
 print("-| Shape of each output dataset will be {}".format(output_shape))
 
 print("\nCreating and opening output file")
@@ -119,6 +136,7 @@ with h5py.File(output_file, "w") as f:
             parent.attrs["Human tStart"] = str(datetime.utcfromtimestamp(value))
         parent.attrs[key] = value
         print("--| key: {}  | value: {}".format(key, value))
+    parent.attrs['Actual tStart'] = startTime
     
     # Create a subdataset for each polarization
     print("-| Creating datasets full of zeros")
@@ -132,7 +150,7 @@ with h5py.File(output_file, "w") as f:
     while input_data.getRemainingFrameCount() > 0:
         current_iteration += 1
         printProgressBar(current_iteration,totalFrames)
-        if current_frame.parseID in desired_parseIDs:
+        if current_frame.parseID() in desired_parseIDs and current_frame.getTime() >= startTime:
 
             (frame_dp_stand_id, frame_ant_polarization) = current_frame.parseID()
 
@@ -143,9 +161,7 @@ with h5py.File(output_file, "w") as f:
             y_index = pol0_counters[x_index]
 
             if y_index == 0:
-                pol0.attrs[str(frame_dp_stand_id)+'_tStart'] = current_frame.getTime()
                 pol0.attrs[str(frame_dp_stand_id)+'_index'] = mapping[frame_dp_stand_id]
-
             
             if not isFrameLimited(y_index, len(frameData), min_frames):
                 data_start = y_index
