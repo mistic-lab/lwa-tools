@@ -35,7 +35,7 @@ def main(args):
 
     print("-| Loading phase delay data")
     stn = load_lwa_station.parse_args(args)
-    cable_phases = np.array([[get_cable_delay(stn, s, args.pol, f_c)]
+    cable_phases = np.array([[get_cable_delay(stn, s, args.pol, f_c, verbose=True, fs=f_s)]
             for s in [args.ref_stand] + args.secondary_stands])
 
 
@@ -67,18 +67,22 @@ def main(args):
 
         sigs, state = signal.lfilter(taps, [1], sigs, axis=1, zi=state)
 
-        # correct the phases by shifting the according to the cable phases 
-        sigs_cable_corrected = sigs * np.exp(-1j * cable_phases)
+        # correct the phases by shifting the according to the cable phases
+        if args.no_phase_corr:
+            print(" NOT CORRECTING PHASE ")
+        else:
+            print(" CORRECTING PHASE ")
+            sigs = sigs * np.exp(-1j * cable_phases)
 
         if args.absolute:
-            for stand, phase in zip([args.ref_stand] + args.secondary_stands, np.angle(sigs_cable_corrected)):
+            for stand, phase in zip([args.ref_stand] + args.secondary_stands, np.angle(sigs)):
                 stand = str(stand)
                 shape = f['absolute'][stand].shape
                 pl = len(phase)
                 f['absolute'][stand].resize((shape[0] + pl,))
                 f['absolute'][stand][-pl:] = phase
 
-        phase_diffs = np.angle(sigs_cable_corrected[0] * np.conj(sigs_cable_corrected[1:]))
+        phase_diffs = np.angle(sigs[0] * np.conj(sigs[1:]))
 
         for stand, phase in zip(args.secondary_stands, phase_diffs):
             stand = str(stand)
@@ -110,6 +114,8 @@ if __name__ == "__main__":
             help='dump aboslute phases before filtering')
     parser.add_argument('-c', '--chunk_size', type=int,
             help='size of chunks to read from the TBN file', default=2**20)
+    parser.add_argument('-n', '--no_phase_corr', action='store_true',
+            help="don't corrrect for cable delays")
     load_lwa_station.add_args(parser)
     args = parser.parse_args()
     

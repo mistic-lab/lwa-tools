@@ -51,8 +51,16 @@ def main(args):
     sec_stands = [s for s in stands for t in args.secondary_stands if s.id == t]
 
     if not args.rel_only:
+        fig, ax = plt.subplots(figsize=(8, 6))
+
+    if not args.rel_only and args.all_stands:
+        x = np.array([s.x for s in stands])
+        y = np.array([s.y for s in stands])
+        ax.scatter(x, y, color='lightgray')
+
+    if not args.rel_only:
         # plot the line along the unit vector
-        plt.plot([-100*tx_unit[0], 100*tx_unit[0]], [-100*tx_unit[1], 100*tx_unit[1]])
+        ax.plot([-100*tx_unit[0], 100*tx_unit[0]], [-100*tx_unit[1], 100*tx_unit[1]])
 
         print("Reference Stand (id {0}): x = {1}, y = {2}, z = {3}".format(
             ref_stand.id,
@@ -60,12 +68,10 @@ def main(args):
             ref_stand.y,
             ref_stand.z
             ))
-        plt.scatter(ref_stand.x, ref_stand.y, color='black')
-        plt.annotate(str(ref_stand.id), (ref_stand.x, ref_stand.y),
+        ax.scatter(ref_stand.x, ref_stand.y, color='red')
+        ax.annotate(str(ref_stand.id), (ref_stand.x, ref_stand.y),
                 xytext=(ref_stand.x+1, ref_stand.y+1))
         
-
-
     for s in sec_stands:
         position = (s.x, s.y, s.z)
         if not args.rel_only:
@@ -90,11 +96,16 @@ def main(args):
             else:
                 print(u"\tDistance from reference: {0:.3f}m".format(distance))
                 an_string = str(s.id)
-            plt.scatter(s.x, s.y)
-            plt.annotate(an_string, (s.x, s.y), xytext=(s.x+1, s.y+1))
+            ax.scatter(s.x, s.y, color='blue')
+            ax.annotate(an_string, (s.x, s.y), xytext=(s.x+1, s.y+1))
+
 
 
     if not args.rel_only:
+        ax.set_xlim([-50, 60])
+        ax.set_ylim([-50, 80])
+        ax.set_xlabel("Displacement from center (m)")
+        ax.set_ylabel("Displacement from center (m)")
         plt.show()
 
         
@@ -114,6 +125,8 @@ if __name__ == "__main__":
             help='signal wavelength in meters for relative measurements')
     parser.add_argument('-r', '--rel_only', action='store_true',
             help="suppress output except relative distances")
+    parser.add_argument('-a', '--all_stands', action='store_true',
+            help="show all stands, but highlight selected ones")
     load_lwa_station.add_args(parser)
     known_transmitters.add_args(parser)
     args = parser.parse_args()

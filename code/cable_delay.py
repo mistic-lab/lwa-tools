@@ -5,10 +5,14 @@ import numpy as np
 from lsl.common import stations
 import load_lwa_station
 
-def get_cable_delay(station, standid, pol, freq):
+def get_cable_delay(station, standid, pol, fc, verbose=False, fs=None):
     ants = station.getAntennas()
     a = next(a for a in ants if a.stand.id == standid and a.pol == pol)
-    return a.cable.delay(freq) * 2 * np.pi * freq
+    delay_s = a.cable.delay(fc)
+    delay_rad = delay_s * 2 * np.pi * fc
+    if verbose:
+        print("Stand {} has cable delay {}s = {}rad = {} samples".format(a.stand.id, delay_s, delay_rad, delay_s*fs))
+    return delay_rad
 
 def main(args):
     # get antenna info for the selected station

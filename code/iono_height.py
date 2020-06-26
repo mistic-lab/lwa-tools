@@ -46,6 +46,8 @@ def main(args):
     if input("Show raw reference antenna spectrogram? (y/n)") == 'y':
         plt.figure()
         plt.specgram(ref_signal, NFFT=1024, Fs=f_s, Fc = f_center)
+        plt.xlabel("Time (s)")
+        plt.ylabel("Frequency (Hz)")
         plt.show()
 
     # Construct bandpass filter by shifting up a lowpass filter
@@ -59,10 +61,12 @@ def main(args):
         # plot frequency response of the BPF
         plt.figure()
         fig, ax = plt.subplots(1,1)
-        w,h = np.abs(signal.freqz(taps, fs=f_s))
-        ax.plot(w, 20 * np.log10(abs(h)), 'k')
-        ax2 = ax.twinx()
-        ax2.plot(w, np.unwrap(np.angle(h)), 'k--')
+        w,h = signal.freqz(taps, fs=f_s)
+        ax.plot(w * f_s/(2*np.pi) + f_center, 20 * np.log10(abs(h)), 'k')
+        #ax2 = ax.twinx()
+        #ax2.plot(w, np.unwrap(np.angle(h)), 'r')
+        ax.set_xlabel("Frequency (Hz)")
+        ax.set_ylabel("Amplitude (dB)")
         plt.show()
 
     ref_filtered = signal.lfilter(taps, [1], ref_signal)
@@ -71,7 +75,9 @@ def main(args):
     
     if input("Show spectrogram post-filtering? (y/n)") == 'y':
         plt.figure()
-        plt.specgram(ref_filtered, NFFT=1024, Fs=f_s)
+        plt.specgram(ref_filtered, NFFT=1024, Fs=f_s, Fc = f_center)
+        plt.xlabel("Time (s)")
+        plt.ylabel("Frequency (Hz)")
         plt.show()
 
     # LSL tracks cable delays, so we convert those to phase differences and 
@@ -92,13 +98,11 @@ def main(args):
 
     ref_cable_phase = float(subprocess.check_output(cmd_list + [str(ref_ant_no)]))
 
-    sec_cable_phases = [float(subprocess.check_output(cmd_list + [str(n)])) for 
-            n in sec_ant_nos]
+    sec_cable_phases = np.array([[float(subprocess.check_output(cmd_list + [str(n)]))] for n in sec_ant_nos])
 
+    ref_filtered = ref_filtered * np.exp(-1j*ref_cable_phase)
 
-    # this is the phase difference introduced by the difference in length between
-    # the signal paths of the reference antenna and each of the secondary antennas
-    cable_phase_diffs = [ref_cable_phase - scp for scp in sec_cable_phases]
+    secs_filtered = secs_filtered * np.exp(-1j*sec_cable_phases)
 
     # To get the incidence angle we need the baseline distance between antennas 
     # along the wavevector. We need LSL for this, so we call an external python 2 script.
@@ -126,8 +130,7 @@ def main(args):
 
     for i in range(len(sec_signals)):
         phase_lim = 2 * np.pi * baselines[i]
-        phase_diffs[i] = np.angle(ref_filtered * np.conj(secs_filtered[i]) 
-                * np.exp(-1j * cable_phase_diffs[i]))
+        phase_diffs[i] = np.angle(ref_filtered * np.conj(secs_filtered[i]))
         times_phase_exceeds = len([p for p in phase_diffs[i] if abs(p) > phase_lim])
         print(f"Phase exceeds expected bounds in {times_phase_exceeds/len(phase_diffs[i]) * 100:.3f}% of samples for secondary on stand {args.secondary_stands[i]}")
 
