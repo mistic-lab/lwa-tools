@@ -14,11 +14,207 @@ from datetime import datetime
 import h5py
 import math
 
-from lsl.reader import tbn
+from lsl.reader import tbn, errors
 from lsl.reader.ldp import LWASVDataFile
 from lsl.common import stations
 
 import arrUtils
+
+
+def generate_multiple_ants(input_file, dp_stand_ids, polarization, chunk_length=2**20, max_length=-1, truncate=True):
+    """Generate chunks of data from a list of antennas.
+
+    Parameters
+    ----------
+    input_file : string
+                raw LWA-SV file path
+    dp_stand_ids : list
+                list of stand ids from 1 to 256 inclusive
+    polarization : list
+                antenna polarization
+    chunk_length : int
+                length of each chunk to extract
+    truncate : bool
+                if the last chunk is shorter than chunk_length, return a short chunk
+                otherwise, pad with zeros
+    
+    Returns
+    -------
+    numpy array
+        array of size (avail frames, bandwidth)
+    """
+    input_data = LWASVDataFile(input_file)
+
+    total_frames = input_data.getRemainingFrameCount()
+    num_ants = input_data.getInfo()['nAntenna']
+    samps_per_frame = 512
+    max_possible_length = int(math.ceil( total_frames / num_ants ) * samps_per_frame)
+
+    if max_length < 0:
+        max_length = max_possible_length
+
+    print("-| {} frames in file".format(total_frames))
+    print("-| {} antennas in file".format(num_ants))
+    print("-| {} samples per frame".format(samps_per_frame))
+    print("--| Extracting from stands {}, pol {}".format(dp_stand_ids, polarization))
+    print("--| There are possibly {} samples for each stand".format(max_possible_length))
+    print("--| Returning data in chunks of length {}".format(chunk_length))
+
+    if chunk_length < samps_per_frame:
+        raise ValueError("--| Error: chunk size ({}) must be larger than frame size ({} samples)".format(chunk_length, samps_per_frame))
+
+    # preallocate array to hold the current chunk of data. leave some space for overflow
+    chunk_buffer = np.empty((len(dp_stand_ids), int(chunk_length * 2)), dtype=np.complex64)
+
+    done = False
+    samples_sent = 0
+    file_ended = False
+    compensating_start_times = True
+    dropped_frames = 0
+    start_times = [0] * len(dp_stand_ids)
+    fill_levels = [0] * len(dp_stand_ids)
+
+    while not done: 
+        # fill the chunk buffer
+        while any([l < chunk_length for l in fill_levels]):
+            # read a frame
+            try:
+                current_frame = input_data.readFrame()
+            except errors.eofError:
+                file_ended = True
+                break
+
+            current_id = current_frame.parseID()
+            for out_idx, stand in enumerate(dp_stand_ids):
+                if (stand, polarization) == current_id:
+                    # this is the right stand, add to the buffer
+                    if compensating_start_times:
+                        time = current_frame.getTime()
+                        if time >= max(start_times):
+                            start_times[out_idx] = time
+                            chunk_buffer[out_idx][:samps_per_frame] = current_frame.data.iq
+                            fill_levels[out_idx] = samps_per_frame
+                        if start_times.count(start_times[0]) == len(start_times) and start_times[0] > 0:
+                            compensating_start_times = False
+                            print("--| Start times match at time {:f}".format(time))
+                    else:
+                        wr_idx = fill_levels[out_idx]
+                        if wr_idx + samps_per_frame > chunk_buffer.shape[1]:
+                            extend_by = max(int(0.2 * chunk_buffer.shape[1]), samps_per_frame)
+                            extension = np.empty((chunk_buffer.shape[0], extend_by))
+                            print("--|Chunk buffer overflowed, increasing length from {} to {}".format(chunk_buffer.shape[1], chunk_buffer.shape[1] + extend_by))
+                            chunk_buffer = np.concatenate((chunk_buffer, extension), axis=1)
+                        chunk_buffer[out_idx][wr_idx:wr_idx + samps_per_frame] = current_frame.data.iq
+                        fill_levels[out_idx] += samps_per_frame
+                        break
+         
+        if samples_sent + chunk_length >= max_length:
+            # this is the last chunk
+            print("--| Requested number of samples read")
+            done = True
+            last_chunk_len = max_length - samples_sent
+            if not truncate:
+                chunk_buffer[:, last_chunk_len:] = 0
+            yield chunk_buffer[:, :last_chunk_len]
+        elif file_ended:
+            # return unfinished chunk
+            print("--| Reached end of file")
+            min_fill = min(fill_levels)
+            done = True
+            if not truncate:
+                chunk_buffer[:, last_chunk_len:] = 0
+            yield chunk_buffer[:, :min_fill]
+        else:
+            # yield the chunk
+            yield chunk_buffer[:, :chunk_length] 
+            samples_sent += chunk_length
+            for i in range(len(chunk_buffer)):
+                # check if there's more than a chunk of samples for any of the stands
+                if fill_levels[i] > chunk_length:
+                    # copy the extra samples to the start of the buffer
+                    overflow_length = fill_levels[i] - chunk_length
+                    chunk_buffer[i][0:overflow_length] = chunk_buffer[i][chunk_length:fill_levels[i]]
+                    # start the next read after the extra samples
+                    fill_levels[i] = overflow_length
+                else:
+                    # otherwise we can overwrite the whole buffer
+                    fill_levels[i] = 0
+    return
+
+def extract_multiple_ants(input_file, dp_stand_ids, polarization, max_length=-1, truncate=True):
+    """Extract and combine all data from a list of antenna into an array of numpy arrays.
+
+    Parameters
+    ----------
+    input_file : string
+                raw LWA-SV file path
+    dp_stand_ids : list
+                list of stand ids from 1 to 256 inclusive
+    polarization : list
+                antenna polarization
+    max_length : int
+                length in samples to extract
+    truncate : boolean
+                discard later frames so all antennas have the same number
+    Returns
+    -------
+    numpy array
+        array of size (len(dp_stand_ids), avail frames)
+    """
+
+    input_data = LWASVDataFile(input_file)
+
+    total_frames = input_data.getRemainingFrameCount()
+    num_ants = input_data.getInfo()['nAntenna']
+    samps_per_frame = 512
+    max_possible_length = int(math.ceil( total_frames / num_ants ) * samps_per_frame)
+
+    if max_length < 0:
+        max_length = max_possible_length
+
+    print("-| {} frames in file".format(total_frames))
+    print("-| {} antennas in file".format(num_ants))
+    print("-| {} samples per frame".format(samps_per_frame))
+    print("--| Extracting from stands {}, pol {}".format(dp_stand_ids, polarization))
+    print("--| Attempting to extract {} of a possible {} samples for each stand".format(max_length, max_possible_length))
+
+    # preallocate data array a little bigger than we think the longest signal will be
+    output_data = np.zeros((len(dp_stand_ids), int(max_length*1.2) + 1), dtype=np.complex64)
+
+    fill_levels = [0] * len(dp_stand_ids)
+
+    # while input_data.getRemainingFrameCount() > 0:
+    while any([l < max_length for l in fill_levels]):
+        try:
+            current_frame = input_data.readFrame()
+        except errors.eofError:
+            print("--| EOF reached before maximum length.")
+            break
+
+        current_id = current_frame.parseID()
+
+        # check if this frame is one we want
+        matching_stand = next((s for s in dp_stand_ids if (s, polarization) == current_id), -1)
+
+        for s in dp_stand_ids:
+            if (s, polarization) == current_id:
+                out_index = dp_stand_ids.index(matching_stand)
+
+                if fill_levels[out_index] < max_length:
+                    wr_idx = fill_levels[out_index]
+                    output_data[out_index][wr_idx:wr_idx + samps_per_frame] = current_frame.data.iq
+                    fill_levels[out_index] += samps_per_frame
+                break
+
+    
+    min_fill = min(fill_levels)
+
+    # if the lengths are unequal then truncate long ones
+    if truncate and fill_levels.count(min_fill) != len(fill_levels):
+        print("--| Truncating lengths from {} to {}".format(fill_levels, min_fill))
+        return output_data[:, :min_fill]
+    else:
+        return output_data[:, :max_length]
 
 
 def extract_single_ant(input_file, dp_stand_id, polarization, max_length=-1):

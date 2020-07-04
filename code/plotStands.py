@@ -24,11 +24,16 @@ def main(args):
     transmitter_coords = known_transmitters.parse_args(args) 
 
     if args.markall:
-        args.stand = numpy.arange(1,257,1)
+        if args.skip_outrigger:
+            args.stand = numpy.arange(1,256,1)
+        else:
+            args.stand = numpy.arange(1,257,1)
     toMark = numpy.array(args.stand)-1
 
     station = load_lwa_station.parse_args(args)
     stands = station.getStands()
+    if args.skip_outrigger:
+        stands = [s for s in stands if s.id != 256]
     stands.sort()
 
     # Load in the stand position data
@@ -126,6 +131,8 @@ if __name__ == "__main__":
                         help='suppress live plot')
     parser.add_argument('-a','--markall', action='store_true',
                         help='mark all stand locations. Can be used in conjunction with --label')
+    parser.add_argument('-u', '--skip_outrigger', action='store_true',
+                        help="don't mark the outrigger antenna")
     known_transmitters.add_args(parser)
     load_lwa_station.add_args(parser)
     args = parser.parse_args()
