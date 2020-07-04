@@ -62,7 +62,7 @@ def main(args):
         plt.figure()
         fig, ax = plt.subplots(1,1)
         w,h = signal.freqz(taps, fs=f_s)
-        ax.plot(w * f_s/(2*np.pi) + f_center, 20 * np.log10(abs(h)), 'k')
+        ax.plot(w + f_center, 20 * np.log10(abs(h)), 'k')
         #ax2 = ax.twinx()
         #ax2.plot(w, np.unwrap(np.angle(h)), 'r')
         ax.set_xlabel("Frequency (Hz)")
