@@ -11,6 +11,7 @@ from lsl.reader.ldp import LWASVDataFile
 
 from generate_visibilities import compute_visibilities_gen, select_antennas
 import known_transmitters
+from visibility_models import point_residual_abs, point_residual_cplx, point_source_visibility_model
 
 #tbn_filename = "../../data/058846_00123426_s0020.tbn"
 #target_freq = 5351500
@@ -29,40 +30,12 @@ fft_len = 16
 use_pfb = False
 use_pol = 0
 integration_length = 1
+residual_function = point_residual_abs
+opt_method = 'lm'
 
 station = stations.lwasv
 
-def point_source_visibility_model(u, v, l, m):
-    '''
-    Computes visibility at u,v as if from a perfect point source located at (l,m)
-    '''
-    return np.exp(2j * np.pi * (l*u + v*m))
-
-def residual_cplx(params, u, v, vis):
-    '''
-    Calculates the residuals of the model fit with the differences of the real
-    and imaginary parts each giving one residual.
-    '''
-    l = params[0]
-    m = params[1]
-    mc = point_source_visibility_model(u, v, l, m)
-
-    return np.concatenate([mc.real, mc.imag]) - np.concatenate([vis.real, vis.imag])
-
-
-def residual_abs(params, u, v, vis):
-    '''
-    Calculates the residual of the model fit as the magnitude of the difference
-    between the model and the actual visibilities.
-    '''
-    l = params[0]
-    m = params[1]
-    mc = point_source_visibility_model(u, v, l, m)
-
-    return np.abs(mc - vis)
-
-
-def ls_cost(params, u, v, vis, resid=residual_abs):
+def ls_cost(params, u, v, vis, resid=point_residual_abs):
     '''
     Computes the least-squares cost function at the given parameter values.
     least_squares actually takes care of this step, but this is here for
@@ -108,6 +81,8 @@ def main(args):
         ats['valid_ants'] = [a.id for a in valid_ants]
         ats['n_baselines'] = n_baselines
         ats['center_freq'] = tbnf.getInfo('freq1')
+        ats['res_function'] = residual_function.__name__
+        ats['opt_method'] = opt_method
         # TODO: use cmd line parametersfor these
         ats['fft_len'] = fft_len
         ats['use_pfb'] = use_pfb
@@ -157,10 +132,10 @@ def main(args):
 
         print("Optimizing")
         opt_result = least_squares(
-                residual_cplx,
+                residual_function,
                 [l_init, m_init], 
                 args=(u, v, vis),
-                method='lm'
+                method=opt_method
                 )
 
         print("Optimization result: {}".format(opt_result))
@@ -185,6 +160,7 @@ def main(args):
         h5f['elevation'][k] = elev
         h5f['azimuth'][k] = az
         h5f['cost'][k] = cost
+        h5f['height'][k] = height
 
         if k in args.scatter:
             print("Plotting model and data scatter")

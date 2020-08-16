@@ -157,5 +157,4 @@ def compute_visibilities_gen(tbn_file, ants, target_freq, station=stations.lwasv
 
         yield (baseline_pairs, visibilities)
 
-    tbn_file.close()
     return
