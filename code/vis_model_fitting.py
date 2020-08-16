@@ -2,11 +2,14 @@
 
 import argparse
 import numpy as np
+import h5py
+from datetime import datetime
 from scipy.optimize import least_squares
 import plotly.graph_objects as go
 from lsl.common import stations
+from lsl.reader.ldp import LWASVDataFile
 
-from generate_visibilities import compute_visibilities_gen
+from generate_visibilities import compute_visibilities_gen, select_antennas
 import known_transmitters
 
 #tbn_filename = "../../data/058846_00123426_s0020.tbn"
@@ -20,6 +23,12 @@ import known_transmitters
 #transmitter_coords = get_transmitter_coords('WWV')
 #l_guess = 0.008 # from a manual fit to the first integration
 #m_guess = 0.031
+
+# to be made into args:
+fft_len = 16
+use_pfb = False
+use_pol = 0
+integration_length = 1
 
 station = stations.lwasv
 
@@ -77,13 +86,49 @@ def main(args):
         print("Please specify a transmitter location")
         return
 
-    if args.csv:
-        print("Writing CSV output to {}".format(args.csv))
-        csvf = open(args.csv, 'w')
-        csvf.write("integration,l_i,m_i,l_o,m_o,elev_o,az_o,az_straight,distance,height,cost\n")
+    tbnf = LWASVDataFile(args.tbn_filename)
+    
+    antennas = station.getAntennas()
+
+    valid_ants, n_baselines = select_antennas(antennas, use_pol)
+
+    if args.hdf5_file:
+        print("Writing output to {}".format(args.hdf5_file))
+        h5f = h5py.File(args.hdf5_file, 'w')
+
+        # write metadata to attributes
+        ats = h5f.attrs
+        ats['tbn_filename'] = args.tbn_filename
+        ats['transmitter'] = args.transmitter
+        ats['tx_bearing'] = bearing
+        ats['tx_distance'] = distance
+        ats['tx_freq'] = args.tx_freq
+        ats['sample_rate'] = tbnf.getInfo('sampleRate')
+        ats['start_time'] = str(datetime.utcfromtimestamp(tbnf.getInfo('tStart')))
+        ats['valid_ants'] = [a.id for a in valid_ants]
+        ats['n_baselines'] = n_baselines
+        ats['center_freq'] = tbnf.getInfo('freq1')
+        # TODO: use cmd line parametersfor these
+        ats['fft_len'] = fft_len
+        ats['use_pfb'] = use_pfb
+        ats['use_pol'] = use_pol
+        ats['int_length'] = integration_length
+
+        n_samples = tbnf.getInfo('nFrames') / len(antennas)
+        samples_per_integration = int(integration_length * tbnf.getInfo('sampleRate') / 512)
+        n_integrations = n_samples / samples_per_integration
+        h5f.create_dataset('l_start', (n_integrations,))
+        h5f.create_dataset('m_start', (n_integrations,))
+        h5f.create_dataset('l_est', (n_integrations,))
+        h5f.create_dataset('m_est', (n_integrations,))
+        h5f.create_dataset('elevation', (n_integrations,))
+        h5f.create_dataset('azimuth', (n_integrations,))
+        h5f.create_dataset('height', (n_integrations,))
+        h5f.create_dataset('cost', (n_integrations,))
+
     else:
         print("No output file specified.")
-        
+        return
 
     # arrays for estimated parameters from each integration
     l_est = np.array([args.l_guess])
@@ -96,7 +141,7 @@ def main(args):
 
     divs = []
 
-    for bl, vis in compute_visibilities_gen(args.tbn_filename, args.target_freq):
+    for bl, vis in compute_visibilities_gen(tbnf, valid_ants, args.tx_freq, integration_length=integration_length, fft_length=fft_len, use_pol=use_pol, use_pfb=use_pfb):
         
         # extract the baseline measurements from the baseline object pairs
         bl2d = np.array([np.array([b[0].stand.x - b[1].stand.x, b[0].stand.y - b[1].stand.y]) for b in bl])
@@ -132,18 +177,14 @@ def main(args):
         # TODO: tilted mirror model?
         height = distance * np.tan(elev)/2.0
 
-        csvf.write("{},{},{},{},{},{},{},{},{},{},{}\n".format(
-            k,
-            l_init,
-            m_init,
-            l_out,
-            m_out,
-            elev,
-            az,
-            bearing,
-            distance,
-            height,
-            cost))
+        # write data to h5 file
+        h5f['l_start'][k] = l_init
+        h5f['m_start'][k] = m_init
+        h5f['l_est'][k] = l_out
+        h5f['m_est'][k] = m_out
+        h5f['elevation'][k] = elev
+        h5f['azimuth'][k] = az
+        h5f['cost'][k] = cost
 
         if k in args.scatter:
             print("Plotting model and data scatter")
@@ -165,17 +206,8 @@ def main(args):
         k += 1
         print("\n\n")
 
-    csvf.close()
-
-    ## remove our initial guess
-    #l_est = l_est[1:]
-    #m_est = m_est[1:]
-
-    #elev, az = lm_to_ea(l_est, m_est)
-
-    #height = distance * np.tan(elev) / 2.0
-
-
+    h5f.close()
+    tbnf.close()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -185,9 +217,9 @@ if __name__ == "__main__":
             )
     parser.add_argument('tbn_filename', type=str,
             help='name of TBN data file')
-    parser.add_argument('--csv', '-c', type=str,
-            help='name of output CSV file')
-    parser.add_argument('target_freq', type=float,
+    parser.add_argument('--hdf5_file', '-f', type=str,
+            help='name of output HDF5 file')
+    parser.add_argument('tx_freq', type=float,
             help='transmitter frequency')
     parser.add_argument('l_guess', type=float,
             help='initial guess for l parameter')

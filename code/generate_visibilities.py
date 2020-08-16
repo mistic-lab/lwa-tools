@@ -12,19 +12,7 @@ from lsl.reader.ldp import LWASVDataFile
 from lsl.common import stations
 from lsl.correlator import uvUtils
 
-########################
-# To become parameters:
-tbn_filename = "../data/058846_00123426_s0020.tbn"
-station = stations.lwasv
-integration_length = 1 # in seconds
-fft_length = 16
-use_pol = 0 # could extend to crosspol later?
-use_pfb = False
-target_freq = 5351500 # Hz
-
-########################
-
-def extract_tbn_metadata(data_file, antennas):
+def extract_tbn_metadata(data_file, antennas, integration_length):
     sample_rate = data_file.getInfo('sampleRate')
     print("| Sample rate: {}".format(sample_rate))
     center_freq = data_file.getInfo('freq1')
@@ -39,7 +27,7 @@ def extract_tbn_metadata(data_file, antennas):
 
     return (sample_rate, center_freq, n_samples, samples_per_integration, n_integrations)
 
-def select_antennas(antennas):
+def select_antennas(antennas, use_pol):
     print("\n\nFiltering for operational antennas:")
     valid_ants = []
     for a in antennas:
@@ -63,12 +51,13 @@ def select_antennas(antennas):
     return valid_ants, n_baselines
 
 
-def compute_visibilities(tbn_filename, target_freq, station=stations.lwasv, integration_length=1, fft_length=16, use_pol=0, use_pfb=False):
+def compute_visibilities(tbn_file, ants, target_freq, station=stations.lwasv, integration_length=1, fft_length=16, use_pol=0, use_pfb=False):
     '''
     Integrates and correlates a TBN file to create an array of visibilities.
 
     Parameters:
-        - tbn_filename: path of TBN data file
+        - tbn_file: TBN file object opened using lsl.reader.ldp.LWASVDataFile
+        - ants: a list of antenna objects that should be used
         - station: LSL station object (default: LWASV)
         - integration_length: each integration is this many seconds long (default: 1)
         - fft_length: length of the FFT used in the FX correlator (default: 16)
@@ -84,14 +73,12 @@ def compute_visibilities(tbn_filename, target_freq, station=stations.lwasv, inte
     print("| Station: {}".format(station))
     antennas = station.getAntennas()
 
-    data_file = LWASVDataFile(tbn_filename)
-    sample_rate, center_freq, n_samples, samples_per_integration, n_integrations = extract_tbn_metadata(data_file, antennas)
+    sample_rate, center_freq, n_samples, samples_per_integration, n_integrations = extract_tbn_metadata(tbn_file, antennas, integration_length)
 
     #sometimes strings are used to indicate polarizations
     pol_string = 'xx' if use_pol == 0 else 'yy'
 
-    # some stands may not be operational - we don't want to use those ones
-    valid_ants, n_baselines = select_antennas(antennas)
+    n_baselines = len(ants) * (len(ants) - 1) / 2 # thanks gauss
 
     print("\nComputing Visibilities:")
 
@@ -100,12 +87,12 @@ def compute_visibilities(tbn_filename, target_freq, station=stations.lwasv, inte
     for i in range(0, n_integrations):
         print("| Integration {}/{}".format(i, n_integrations-1))
         #get one integration length of data
-        duration, start_time, data = data_file.read(integration_length)
+        duration, start_time, data = tbn_file.read(integration_length)
 
         #only use data form the valid antennas
-        data = data[[a.digitizer - 1 for a in valid_ants], :]
+        data = data[[a.digitizer - 1 for a in ants], :]
 
-        baseline_pairs, freqs, visibilities = fxc.FXMaster(data, valid_ants, LFFT=fft_length, pfb=use_pfb, IncludeAuto=False, verbose=True, SampleRate=sample_rate, CentralFreq=center_freq, Pol=pol_string, ReturnBaselines=True, GainCorrect=True)
+        baseline_pairs, freqs, visibilities = fxc.FXMaster(data, ants, LFFT=fft_length, pfb=use_pfb, IncludeAuto=False, verbose=True, SampleRate=sample_rate, CentralFreq=center_freq, Pol=pol_string, ReturnBaselines=True, GainCorrect=True)
 
         # we only want the bin nearest to our target frequency
         target_bin = np.argmin([abs(target_freq - f) for f in freqs])
@@ -114,17 +101,18 @@ def compute_visibilities(tbn_filename, target_freq, station=stations.lwasv, inte
 
         vis_data[i, :] = visibilities
 
-    data_file.close()
+    tbn_file.close()
 
     return (baseline_pairs, vis_data)
 
 
-def compute_visibilities_gen(tbn_filename, target_freq, station=stations.lwasv, integration_length=1, fft_length=16, use_pol=0, use_pfb=False):
+def compute_visibilities_gen(tbn_file, ants, target_freq, station=stations.lwasv, integration_length=1, fft_length=16, use_pol=0, use_pfb=False):
     '''
     Returns a generator to integrates and correlates a TBN file. Each iteration of the generator returns the baselines and the visibilities for one integration
 
     Parameters:
-        - tbn_filename: path of TBN data file
+        - tbn_file: TBN file object opened using lsl.reader.ldp.LWASVDataFile
+        - ants: a list of antenna objects that should be used
         - station: LSL station object (default: LWASV)
         - integration_length: each integration is this many seconds long (default: 1)
         - fft_length: length of the FFT used in the FX correlator (default: 16)
@@ -138,31 +126,29 @@ def compute_visibilities_gen(tbn_filename, target_freq, station=stations.lwasv, 
         the antenna pairs in baselines.
     '''
 
-    print('Generating visibilities from file: {}'.format(tbn_filename))
+    print('Generating visibilities')
     print('| Station: {}'.format(station))
     antennas = station.getAntennas()
 
-    data_file = LWASVDataFile(tbn_filename)
-    sample_rate, center_freq, n_samples, samples_per_integration, n_integrations = extract_tbn_metadata(data_file, antennas)
+    sample_rate, center_freq, n_samples, samples_per_integration, n_integrations = extract_tbn_metadata(tbn_file, antennas, integration_length)
 
     #sometimes strings are used to indicate polarizations
     pol_string = 'xx' if use_pol == 0 else 'yy'
 
-    # some stands may not be operational - we don't want to use those ones
-    valid_ants, n_baselines = select_antennas(antennas)
+    n_baselines = len(ants) * (len(ants) - 1) / 2
 
     print("\nComputing Visibilities:")
 
     for i in range(0, n_integrations):
         print("| Integration {}/{}".format(i, n_integrations-1))
         # get one integration length of data
-        duration, start_time, data = data_file.read(integration_length)
+        duration, start_time, data = tbn_file.read(integration_length)
 
         #only use data from the valid antennas
-        data = data[[a.digitizer - 1 for a in valid_ants], :]
+        data = data[[a.digitizer - 1 for a in ants], :]
 
         # correlate
-        baseline_pairs, freqs, visibilities = fxc.FXMaster(data, valid_ants, LFFT=fft_length, pfb=use_pfb, IncludeAuto=False, verbose=True, SampleRate=sample_rate, CentralFreq=center_freq, Pol=pol_string, ReturnBaselines=True, GainCorrect=True)
+        baseline_pairs, freqs, visibilities = fxc.FXMaster(data, ants, LFFT=fft_length, pfb=use_pfb, IncludeAuto=False, verbose=True, SampleRate=sample_rate, CentralFreq=center_freq, Pol=pol_string, ReturnBaselines=True, GainCorrect=True)
 
         # we only want the bin nearest to our frequency
         target_bin = np.argmin([abs(target_freq - f) for f in freqs])
@@ -171,5 +157,5 @@ def compute_visibilities_gen(tbn_filename, target_freq, station=stations.lwasv, 
 
         yield (baseline_pairs, visibilities)
 
-    data_file.close()
+    tbn_file.close()
     return
