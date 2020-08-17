@@ -63,12 +63,6 @@ def main(args):
         print("Please specify a transmitter location")
         return
 
-    if not args.exclude:
-        args.exclude = []
-
-    if not args.scatter:
-        args.scatter = []
-
     tbnf = LWASVDataFile(args.tbn_filename)
     
     antennas = station.getAntennas()
@@ -155,7 +149,7 @@ def main(args):
 
         skip = False
 
-        if k in args.exclude:
+        if args.exclude and k in args.exclude:
             print("Not including in parameter estimates by request")
             skip = True
         elif len(costs) > 10:
@@ -186,7 +180,8 @@ def main(args):
         h5f['height'][k] = height
         h5f['skipped'][k] = skip
 
-        if k in args.scatter:
+        save_scatter = (args.scatter and k in args.scatter) or (args.scatter_every and k % args.scatter_every == 0) or (args.scatter_bad_fits and skip)
+        if save_scatter:
             print("Plotting model and data scatter")
             data = [
                 go.Scatter3d(x=u, y=v, z=np.angle(vis), mode='markers', marker=dict(size=1, color='red')),
@@ -226,7 +221,11 @@ if __name__ == "__main__":
     parser.add_argument('m_guess', type=float,
             help='initial guess for m parameter')
     parser.add_argument('--scatter', type=int, nargs='*',
-            help='export scatter plots for these integrations')
+            help='export scatter plots for these integrations - warning: each scatter plot is about 6MB')
+    parser.add_argument('--scatter_every', type=int,
+            help='export a scatter plot every x integrations')
+    parser.add_argument('--scatter_bad_fits', action='store_true',
+            help='export a scatter plot when the cost threshold is exceeded')
     parser.add_argument('--exclude', type=int, nargs='*',
             help="don't use these integrations in parameter guessing")
             
