@@ -63,7 +63,8 @@ def main(args):
         print("Please specify a transmitter location")
         return
 
-    tbnf = LWASVDataFile(args.tbn_filename)
+    print("Opening TBN file ({})".format(args.tbn_filename))
+    tbnf = LWASVDataFile(args.tbn_filename, ignoreTimeTagErrors=True)
     
     antennas = station.getAntennas()
 
