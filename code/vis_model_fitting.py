@@ -33,6 +33,10 @@ integration_length = 1
 residual_function = point_residual_abs
 opt_method = 'lm'
 
+param_guess_av_length = 10
+cost_threshold_av_length = 10
+cost_threshold_sigma = 3
+
 station = stations.lwasv
 
 def ls_cost(params, u, v, vis, resid=point_residual_abs):
@@ -58,6 +62,12 @@ def main(args):
     else:
         print("Please specify a transmitter location")
         return
+
+    if not args.exclude:
+        args.exclude = []
+
+    if not args.scatter:
+        args.scatter = []
 
     tbnf = LWASVDataFile(args.tbn_filename)
     
@@ -89,7 +99,7 @@ def main(args):
         ats['use_pol'] = use_pol
         ats['int_length'] = integration_length
 
-        n_samples = tbnf.getInfo('nFrames') / len(antennas)
+        n_samples = tbnf.getInfo('nFrames') / tbnf.getInfo('nAntenna')
         samples_per_integration = int(integration_length * tbnf.getInfo('sampleRate') / 512)
         n_integrations = n_samples / samples_per_integration
         h5f.create_dataset('l_start', (n_integrations,))
@@ -100,6 +110,7 @@ def main(args):
         h5f.create_dataset('azimuth', (n_integrations,))
         h5f.create_dataset('height', (n_integrations,))
         h5f.create_dataset('cost', (n_integrations,))
+        h5f.create_dataset('skipped', (n_integrations,), dtype='bool')
 
     else:
         print("No output file specified.")
@@ -108,6 +119,7 @@ def main(args):
     # arrays for estimated parameters from each integration
     l_est = np.array([args.l_guess])
     m_est = np.array([args.m_guess])
+    costs = np.array([])
     elev_est = np.array([])
     az_est = np.array([])
     height_est = np.array([])
@@ -125,8 +137,8 @@ def main(args):
         vis = vis/np.abs(vis)
 
         # start the optimization at the mean point of the 10 most recent fits
-        l_init = l_est[-10:].mean()
-        m_init = m_est[-10:].mean()
+        l_init = l_est[-param_guess_av_length:].mean()
+        m_init = m_est[-param_guess_av_length:].mean()
 
         print("Optimizing")
         opt_result = least_squares(
@@ -141,17 +153,27 @@ def main(args):
         l_out, m_out = opt_result['x']
         cost = opt_result['cost']
 
-        if k not in args.exclude:
+        skip = False
+
+        if k in args.exclude:
+            print("Not including in parameter estimates by request")
+            skip = True
+        elif len(costs) > 10:
+            recent_costs = costs[-cost_threshold_av_length:]
+            if cost > (recent_costs.mean() + cost_threshold_sigma * recent_costs.std()):
+                print("Not including in parameter estimates due to cost")
+                skip = True
+
+        if not skip:
             l_est = np.append(l_est, l_out)
             m_est = np.append(m_est, m_out)
-        else:
-            print("skipping this one")
+            costs = np.append(costs, cost)
 
         elev, az = lm_to_ea(l_out, m_out)
 
         # use the flat mirror ionosphere model for now
         # TODO: tilted mirror model?
-        height = distance * np.tan(elev)/2.0
+        height = (distance/2) * np.tan(elev)
 
         # write data to h5 file
         h5f['l_start'][k] = l_init
@@ -162,6 +184,7 @@ def main(args):
         h5f['azimuth'][k] = az
         h5f['cost'][k] = cost
         h5f['height'][k] = height
+        h5f['skipped'][k] = skip
 
         if k in args.scatter:
             print("Plotting model and data scatter")
