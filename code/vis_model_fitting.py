@@ -177,7 +177,7 @@ def main(args):
                 zaxis_title='phase'),
                 title="Integration {}".format(k))
 
-            fig.write_html("scatter_int_{}.html".format(k))
+            fig.write_html("{}_scatter_int_{}.html".format(args.hdf5_file.split('/')[-1].split('.')[0], k))
 
         k += 1
         print("\n\n")
