@@ -34,8 +34,8 @@ residual_function = point_residual_abs
 opt_method = 'lm'
 
 param_guess_av_length = 10
-cost_threshold_av_length = 10
-cost_threshold_sigma = 3
+#cost_threshold_av_length = 10
+#cost_threshold_sigma = 3
 
 station = stations.lwasv
 
@@ -113,7 +113,7 @@ def main(args):
     # arrays for estimated parameters from each integration
     l_est = np.array([args.l_guess])
     m_est = np.array([args.m_guess])
-    costs = np.array([])
+    #costs = np.array([])
     elev_est = np.array([])
     az_est = np.array([])
     height_est = np.array([])
@@ -152,16 +152,16 @@ def main(args):
         if args.exclude and k in args.exclude:
             print("Not including in parameter estimates by request")
             skip = True
-        elif len(costs) > 10:
-            recent_costs = costs[-cost_threshold_av_length:]
-            if cost > (recent_costs.mean() + cost_threshold_sigma * recent_costs.std()):
-                print("Not including in parameter estimates due to cost")
-                skip = True
+        #elif len(costs) > 10:
+        #    recent_costs = costs[-cost_threshold_av_length:]
+        #    if cost > (recent_costs.mean() + cost_threshold_sigma * recent_costs.std()):
+        #        print("Not including in parameter estimates due to cost")
+        #        skip = True
 
         if not skip:
             l_est = np.append(l_est, l_out)
             m_est = np.append(m_est, m_out)
-            costs = np.append(costs, cost)
+            #costs = np.append(costs, cost)
 
         elev, az = lm_to_ea(l_out, m_out)
 
@@ -180,7 +180,7 @@ def main(args):
         h5f['height'][k] = height
         h5f['skipped'][k] = skip
 
-        save_scatter = (args.scatter and k in args.scatter) or (args.scatter_every and k % args.scatter_every == 0) or (args.scatter_bad_fits and skip)
+        save_scatter = (args.scatter and k in args.scatter) or (args.scatter_every and k % args.scatter_every == 0)# or (args.scatter_bad_fits and skip)
         if save_scatter:
             print("Plotting model and data scatter")
             data = [
@@ -224,8 +224,8 @@ if __name__ == "__main__":
             help='export scatter plots for these integrations - warning: each scatter plot is about 6MB')
     parser.add_argument('--scatter_every', type=int,
             help='export a scatter plot every x integrations')
-    parser.add_argument('--scatter_bad_fits', action='store_true',
-            help='export a scatter plot when the cost threshold is exceeded')
+    #parser.add_argument('--scatter_bad_fits', action='store_true',
+    #        help='export a scatter plot when the cost threshold is exceeded')
     parser.add_argument('--exclude', type=int, nargs='*',
             help="don't use these integrations in parameter guessing")
             
