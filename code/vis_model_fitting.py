@@ -114,8 +114,6 @@ def main(args):
 
     k = 0
 
-    divs = []
-
     for bl, vis in compute_visibilities_gen(tbnf, valid_ants, args.tx_freq, integration_length=integration_length, fft_length=fft_len, use_pol=use_pol, use_pfb=use_pfb):
         
         # extract the baseline measurements from the baseline object pairs
@@ -143,8 +141,11 @@ def main(args):
         l_out, m_out = opt_result['x']
         cost = opt_result['cost']
 
-        l_est = np.append(l_est, l_out)
-        m_est = np.append(m_est, m_out)
+        if k not in args.exclude:
+            l_est = np.append(l_est, l_out)
+            m_est = np.append(m_est, m_out)
+        else:
+            print("skipping this one")
 
         elev, az = lm_to_ea(l_out, m_out)
 
@@ -201,8 +202,10 @@ if __name__ == "__main__":
             help='initial guess for l parameter')
     parser.add_argument('m_guess', type=float,
             help='initial guess for m parameter')
-    parser.add_argument('scatter', type=int, nargs='*',
+    parser.add_argument('--scatter', type=int, nargs='*',
             help='export scatter plots for these integrations')
+    parser.add_argument('--exclude', type=int, nargs='*',
+            help="don't use these integrations in parameter guessing")
             
     known_transmitters.add_args(parser)
     args = parser.parse_args()
