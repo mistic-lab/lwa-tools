@@ -4,12 +4,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 from mpl_toolkits.mplot3d import Axes3D
-from generate_visibilities import compute_visibilities
+from generate_visibilities import compute_visibilities, select_antennas
 from known_transmitters import get_transmitter_coords
 from lsl.common import stations
+from lsl.reader.ldp import LWASVDataFile
 from plot_visibility_2d import project_baselines
 from scipy.signal import find_peaks
 from scipy.optimize import least_squares, brute, fmin
+from tqdm import tqdm
 
 import lmfit
 
@@ -17,13 +19,13 @@ import lmfit
 JS: This is a WIP - I haven't found a reliable way to fit to wrapped phase data :(
 """
 
-tbn_filename = "../../data/058846_00123426_s0020.tbn"
-target_freq = 5351500
-transmitter_coords = get_transmitter_coords('SFe')
+#tbn_filename = "../../data/058846_00123426_s0020.tbn"
+#target_freq = 5351500
+#transmitter_coords = get_transmitter_coords('SFe')
 
-#tbn_filename = "../../data/058628_001748318.tbn"
-#target_freq = 10e6
-#transmitter_coords = get_transmitter_coords('WWV')
+tbn_filename = "../../data/058628_001748318.tbn"
+target_freq = 10e6
+transmitter_coords = get_transmitter_coords('WWV')
 
 station = stations.lwasv
 
@@ -195,22 +197,26 @@ def scatter_model_and_data(u, v, l, m, vis):
 def cost_function_contour(l_c, m_c, l_width, m_width, u, v, vis, N=50):
     cost = np.zeros((N,N))
     l_range = np.linspace(l_c - l_width/2.0, l_c + l_width/2.0, N)
+    print(l_range)
     m_range = np.linspace(m_c - m_width/2.0, m_c + m_width/2.0, N)
+    print(m_range)
     for x, l in enumerate(l_range):
         for y, m in enumerate(m_range):
             cost[x,y] = ls_cost([l, m], u, v, vis)
 
-    plt.scatter(l_c, m_c, marker='+')
 
     plt.contourf(l_range, m_range, cost)
+    plt.colorbar()
     plt.xlabel("l")
     plt.ylabel("m")
-    plt.colorbar()
     plt.show()
 
 if __name__ == "__main__":
     plt.close('all')
-    #baselines, visibilities = compute_visibilities(tbn_filename, target_freq)
+    ants, n_baselines = select_antennas(station.antennas, use_pol=0)
+    dfile = LWASVDataFile(tbn_filename)
+    #baselines, visibilities = compute_visibilities(dfile, ants, target_freq)
+    dfile.close()
 
     azimuth = station.getPointingAndDistance(transmitter_coords + [0])[0]
 
@@ -226,11 +232,11 @@ if __name__ == "__main__":
 
     vis = vis/np.abs(vis)
 
-    #initial_params = (0.008, 0.031)
-    initial_params = (0.07, -0.035)
+    initial_params = (0.008, 0.031)
+    #initial_params = (0.07, 0.035)
 
-    l_width = 0.5
-    m_width = 0.5
+    l_width = 1
+    m_width = 1
     N = 50
 
     cost = np.zeros((N,N))
@@ -240,4 +246,4 @@ if __name__ == "__main__":
     print(result)
     print(initial_params)
 
-    cost_function_contour(0, 0, 0.1, 0.1, u, v, vis, N=30)
+    cost_function_contour(0, 0, 0.04, 0.04, u, v, vis, N=50)

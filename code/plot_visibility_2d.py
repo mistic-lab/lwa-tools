@@ -2,22 +2,24 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-from generate_visibilities import compute_visibilities
+from generate_visibilities import compute_visibilities, select_antennas
 from known_transmitters import get_transmitter_coords
 from lsl.common import stations
+from lsl.reader.ldp import LWASVDataFile
 
 ##############################
 # Turn these into parameters #
 ##############################
 
-tbn_filename = "../../data/058846_00123426_s0020.tbn"
-target_freq = 5351500
-transmitter_coords = get_transmitter_coords('SFe')
 output_dir = "../../model_fitting"
 
-#tbn_filename = "../../data/058628_001748318.tbn"
-#target_freq = 10e6
-#transmitter_coords = get_transmitter_coords('WWV')
+#tbn_filename = "../../data/058846_00123426_s0020.tbn"
+#target_freq = 5351500
+#transmitter_coords = get_transmitter_coords('SFe')
+
+tbn_filename = "../../data/058628_001748318.tbn"
+target_freq = 10e6
+transmitter_coords = get_transmitter_coords('WWV')
 
 station = stations.lwasv
 
@@ -37,10 +39,12 @@ def plot_vis_2d(bl_array, visibilities, output_dir='.'):
     for k, vis in enumerate(visibilities):
         fig, ax = plt.subplots(2, 1, sharex=True)
         ax[0].scatter(bl_array, abs(vis), color = 'black', marker='.', s=0.1)
+        ax[0].set_ylabel("Visibility Magnitude")
         ax[0].set_ylim(0, 60000)
         ax[1].scatter(bl_array, np.angle(vis), color='black', marker='.', s=0.1)
-        plt.show()
-        #plt.savefig("{}/{}.png".format(output_dir, k))
+        ax[1].set_ylabel("Visibility Phase")
+        ax[1].set_xlabel("Projected Baseline")
+        plt.savefig("{}/{}.png".format(output_dir, k))
 
 
 def plot_unprojected(baseline_pairs, visibilities):
@@ -66,5 +70,7 @@ def plot_projected(baseline_pairs, visibilities, azimuth, output_dir='.'):
 
 if __name__ == "__main__":
     azimuth = station.getPointingAndDistance(transmitter_coords + [0])[0]
-    baseline_pairs, visibilities = compute_visibilities(tbn_filename, target_freq)
+    tbn_file = LWASVDataFile(tbn_filename)
+    ants, n_baselines = select_antennas(stations.lwasv.antennas, use_pol=0)
+    baseline_pairs, visibilities = compute_visibilities(tbn_file, ants, target_freq)
     plot_projected(baseline_pairs, visibilities, azimuth, output_dir)

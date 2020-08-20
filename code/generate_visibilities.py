@@ -69,11 +69,10 @@ def compute_visibilities(tbn_file, ants, target_freq, station=stations.lwasv, in
         visibilities is a numpy array of visibility vectors, one for each integration. Visibilities within the vectors correspond to the antenna pairs in baselines.
 
     '''
-    print("Extracting visibilities from file {}:".format(tbn_filename))
+    print("Extracting visibilities")
     print("| Station: {}".format(station))
-    antennas = station.getAntennas()
 
-    sample_rate, center_freq, n_samples, samples_per_integration, n_integrations = extract_tbn_metadata(tbn_file, antennas, integration_length)
+    sample_rate, center_freq, n_samples, samples_per_integration, n_integrations = extract_tbn_metadata(tbn_file, station.antennas, integration_length)
 
     #sometimes strings are used to indicate polarizations
     pol_string = 'xx' if use_pol == 0 else 'yy'
@@ -100,8 +99,6 @@ def compute_visibilities(tbn_file, ants, target_freq, station=stations.lwasv, in
         visibilities = visibilities[:, target_bin]
 
         vis_data[i, :] = visibilities
-
-    tbn_file.close()
 
     return (baseline_pairs, vis_data)
 
