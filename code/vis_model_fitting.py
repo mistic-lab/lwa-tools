@@ -49,9 +49,9 @@ def ls_cost(params, u, v, vis, resid=point_residual_abs):
     return np.dot(r,r)
 
 def lm_to_ea(l, m):
-    elev = np.arctan(m/l)
+    azimuth = np.pi/2 - np.arctan(m/l)
     
-    azimuth = np.pi/2 - np.arccos(l/np.cos(elev))
+    elev = np.arccos(np.sqrt(l**2 + m**2))
 
     return elev, azimuth
 
@@ -128,8 +128,20 @@ def main(args):
         u = bl2d[:, 0]
         v = bl2d[:, 1]
 
+        # convert the baselines to wavelenths -- great job jeff
+        wavelength = 3e8/args.tx_freq
+
+        u = u/wavelength
+        v = v/wavelength
+
         # we're only fitting the phase, so normalize the visibilities
         vis = vis/np.abs(vis)
+
+        if args.export_npy:
+            print("Exporting u, v, and visibility")
+            np.save('u{}.npy'.format(k), u)
+            np.save('v{}.npy'.format(k), v)
+            np.save('vis{}.npy'.format(k), vis)
 
         # start the optimization at the mean point of the 10 most recent fits
         l_init = l_est[-param_guess_av_length:].mean()
@@ -229,6 +241,8 @@ if __name__ == "__main__":
     #        help='export a scatter plot when the cost threshold is exceeded')
     parser.add_argument('--exclude', type=int, nargs='*',
             help="don't use these integrations in parameter guessing")
+    parser.add_argument('--export_npy', action='store_true',
+            help="export npy files of u, v, and visibility for each iteration - NOTE: these will take up LOTS OF SPACE if you run an entire file with this on!")
             
     known_transmitters.add_args(parser)
     args = parser.parse_args()
