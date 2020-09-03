@@ -68,7 +68,8 @@ def main(args):
     stands_min_Z = min(data[:,3])
 
     # Angle of arrival of wavefront (bearing from north, clockwise)
-    tx=43.80805491642218
+    tx=43.80805491642218 # WWV
+    tx=27.5444888583 # Bills
     tx_rad = math.radians(tx)
     if tx < 45 and tx > 0:
         wavefront_min_X = wavefront_min_Y*math.tan(tx_rad)
@@ -180,6 +181,8 @@ if __name__ == "__main__":
                         help='filename to save the plot to')
     parser.add_argument('-p', '--suppress', action='store_true',
                         help='suppress live plot')
+    load_lwa_station.add_args(parser)
     args = parser.parse_args()
+
     main(args)
     

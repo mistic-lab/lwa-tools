@@ -12,3 +12,5 @@ venv/
 *.pyc
 
 code/figures/
+
+*.hdf5
