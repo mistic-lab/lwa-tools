@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 
 ''' 
 This script uses the LSL FX correlator to generate visibilities that can be
@@ -10,15 +10,15 @@ import matplotlib.pyplot as plt
 from lsl.correlator import fx as fxc
 from lsl.reader.ldp import LWASVDataFile
 from lsl.common import stations
-from lsl.correlator import uvUtils
+from lsl.correlator import uvutils
 
 def extract_tbn_metadata(data_file, antennas, integration_length):
-    sample_rate = data_file.getInfo('sampleRate')
+    sample_rate = data_file.get_info('sampleRate')
     print("| Sample rate: {}".format(sample_rate))
-    center_freq = data_file.getInfo('freq1')
+    center_freq = data_file.get_info('freq1')
     print("| Center frequency: {}".format(center_freq))
 
-    n_samples = data_file.getInfo('nFrames') / len(antennas)
+    n_samples = data_file.get_info('nFrames') / len(antennas)
     print("| Samples in file: {}".format(n_samples))
     samples_per_integration = int(integration_length * sample_rate / 512)
     print("| Samples per integration: {}".format(samples_per_integration))
