@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 
 import argparse
 import numpy as np
@@ -23,15 +23,15 @@ def lm_to_ea(l, m):
 def main(args):
     transmitter_coords = known_transmitters.parse_args(args)
     if transmitter_coords:
-        bearing, _, distance = station.getPointingAndDistance(transmitter_coords + [0])
+        bearing, _, distance = station.get_pointing_and_distance(transmitter_coords + [0])
     else:
         print("Please specify a transmitter location")
         return
 
     print("Opening TBN file ({})".format(args.tbn_filename))
-    tbnf = LWASVDataFile(args.tbn_filename, ignoreTimeTagErrors=True)
+    tbnf = LWASVDataFile(args.tbn_filename, ignore_time_tag_errors=True)
     
-    antennas = station.getAntennas()
+    antennas = station.antennas
 
     valid_ants, n_baselines = select_antennas(antennas, args.use_pol)
 
@@ -46,11 +46,11 @@ def main(args):
         ats['tx_bearing'] = bearing
         ats['tx_distance'] = distance
         ats['tx_freq'] = args.tx_freq
-        ats['sample_rate'] = tbnf.getInfo('sampleRate')
-        ats['start_time'] = str(datetime.utcfromtimestamp(tbnf.getInfo('tStart')))
+        ats['sample_rate'] = tbnf.get_info('sample_rate')
+        ats['start_time'] = str(tbnf.get_info('start_time').utc_datetime)
         ats['valid_ants'] = [a.id for a in valid_ants]
         ats['n_baselines'] = n_baselines
-        ats['center_freq'] = tbnf.getInfo('freq1')
+        ats['center_freq'] = tbnf.get_info('freq1')
         # ats['res_function'] = residual_function.__name__
         # ats['opt_method'] = opt_method
         ats['fft_len'] = args.fft_len
@@ -58,8 +58,8 @@ def main(args):
         ats['use_pol'] = args.use_pol
         ats['int_length'] = args.integration_length
 
-        n_samples = tbnf.getInfo('nFrames') / tbnf.getInfo('nAntenna')
-        samples_per_integration = int(args.integration_length * tbnf.getInfo('sampleRate') / 512)
+        n_samples = tbnf.getInfo('nframe') / tbnf.get_info('nantenna')
+        samples_per_integration = int(args.integration_length * tbnf.getInfo('sample_rate') / 512)
         n_integrations = n_samples / samples_per_integration
         h5f.create_dataset('l_start', (n_integrations,))
         h5f.create_dataset('m_start', (n_integrations,))

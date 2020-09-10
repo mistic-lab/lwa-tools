@@ -22,7 +22,7 @@ def main(args):
 
         fs = float(pull_meta(full_fname, 'sample_rate'))
         samp_len = t_len * fs
-        tStart = pull_meta(full_fname, 'Human tStart')
+        tStart = pull_meta(full_fname, 'Human start time')
         fc = float(pull_meta(full_fname, 'freq1'))
 
         arr = extract_single_ant(full_fname, dp_stand, pol, max_length=samp_len)

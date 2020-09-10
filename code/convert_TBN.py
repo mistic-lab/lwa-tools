@@ -111,8 +111,8 @@ def main(args):
         # Add attributes to group
         print("-| Adding TBN metadata as attributes to the parent group")
         for key, value in input_data.get_info().items():
-            if key is "tStart":
-                parent.attrs["Human tStart"] = str(value.utc_datetime)
+            if key is "start_time":
+                parent.attrs["Human start time"] = str(value.utc_datetime)
             parent.attrs[key] = value
             print("--| key: {}  | value: {}".format(key, value))
         

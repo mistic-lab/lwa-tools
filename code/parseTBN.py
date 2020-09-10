@@ -294,8 +294,8 @@ def meta_to_txt(filename):
     with open(simple_name + ".txt", 'w') as meta:
         meta.write('TBN Metadata:\n')
         for key, value in idfN.get_info().items():
-            if key is "tStart":
-                meta.write("Human tStart: " + str(value.utc_datetime)+"\n")
+            if key is "start_time":
+                meta.write("Human start time: " + str(value.utc_datetime)+"\n")
             meta.write("  %s: %s\n" % (str(key), str(value)))
 
 
@@ -304,7 +304,7 @@ def meta_to_txt(filename):
 def pull_meta(filename, key):
     """ Pulls out metadata from a TBN file given a key.
 
-    Possible keys: 'dataBits','FrameSize','Human tStart', 'tStart','nantenna','sampleRate','nFrames','tStartSamples','freq1','size'
+    Possible keys: 'size','nframe','frame_size', 'nantenna','sample_rate','data_bits','start_time','start_time_samples','freq1'
 
     Parameters
     ----------
@@ -314,12 +314,12 @@ def pull_meta(filename, key):
                 one of the possible keys listed above
     """
     idfN = LWASVDataFile(filename)
-    if key == 'Human tStart':
-        tbnKey = 'tStart'
+    if key == 'Human start time':
+        tbnKey = 'start_time'
     else:
         tbnKey = key
     value = idfN.get_info()[tbnKey]
-    if key == 'Human tStart':
+    if key == 'Human start time':
         return str(value.utc_datetime)
     else:
         return str(value)

@@ -106,7 +106,7 @@ def main(args):
             foPol0 = fo.create_dataset("pol0", output_shape, dtype=np.complex64)#, compression='lzf')
             # foPol1 = fo.create_dataset("pol1", output_shape, dtype=np.complex64)#, compression='lzf')
 
-            times = np.linspace(0, output_shape[1]*args.nfft*args.navg/fs, output_shape[1], endpoint=False)+fo.attrs['tStart']
+            times = np.linspace(0, output_shape[1]*args.nfft*args.navg/fs, output_shape[1], endpoint=False)+fo.attrs['start_time'].unix
             freqs = np.linspace(-fs/2, fs/2, args.nfft, endpoint=False)+fc
 
             fo.create_dataset('times', (len(times),), dtype="float64")[:] = times
