@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 # Some tools to help build SDF files. The SDF GUI tool doesn't seem to work for the lower frequencies for LWA-SV.
 # A description of the various parameters is at the following
 # https://www.faculty.ece.vt.edu/swe/lwavt/doc/MCS0030v3_Observing.pdf

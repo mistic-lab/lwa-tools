@@ -14,9 +14,9 @@ def main(args):
 
     print("\nExtracting metadata")
     f_c = args.center_freq # carrier frequency
-    f_s = float(pull_meta(args.data_filename, 'sampleRate')) # measurement sample rate
+    f_s = float(pull_meta(args.data_filename, 'sample_rate')) # measurement sample rate
     f_center = float(pull_meta(args.data_filename, 'freq1')) # measurement center freq
-    n_frames = int(pull_meta(args.data_filename, 'nFrames')) # number of frames
+    n_frames = int(pull_meta(args.data_filename, 'nframe')) # number of frames
     f_c_dm = f_c - f_center # downmixed center frequency
 
     print("-| Sample rate: {}".format(f_s))

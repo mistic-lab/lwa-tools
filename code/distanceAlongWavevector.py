@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 import numpy as np
 import argparse
@@ -11,9 +11,9 @@ import load_lwa_station
 from lwa_common import get_bearing
 
 def wavevector_baseline(ref_stand, sec_stand, station, transmitter_coords):
-    stands = station.getStands()
+    stands = station.stands
 
-    tx_rad = station.getPointingAndDistance(transmitter_coords + [0])[0] 
+    tx_rad = station.get_pointing_and_distance(transmitter_coords + [0])[0] 
 
     tx_unit = np.array([-np.cos(np.pi/2 - tx_rad), -np.sin(np.pi/2 - tx_rad)])
 
@@ -35,13 +35,13 @@ def main(args):
         return
 
     station = load_lwa_station.parse_args(args)
-    stands = set(station.getStands()) # convert to set to remove duplicates
+    stands = set(station.stands) # convert to set to remove duplicates
 
     # get transmitter unit vector
     #tx_rad = get_bearing(
     #        [math.degrees(station.lat), math.degrees(station.long)], transmitter_coords
     #        )
-    tx_rad = station.getPointingAndDistance(transmitter_coords + [0])[0] 
+    tx_rad = station.get_pointing_and_distance(transmitter_coords + [0])[0] 
 
     # note: bearing is measured CW from north
     tx_unit = np.array([-np.cos(np.pi/2 - tx_rad), -np.sin(np.pi/2 - tx_rad)])

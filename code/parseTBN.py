@@ -1,3 +1,5 @@
+#!/usr/bin/python2
+
 ##########
 # Author: Nicholas Bruce
 # Date: June 17 2019
@@ -45,8 +47,8 @@ def generate_multiple_ants(input_file, dp_stand_ids, polarization, chunk_length=
     """
     input_data = LWASVDataFile(input_file)
 
-    total_frames = input_data.getRemainingFrameCount()
-    num_ants = input_data.getInfo()['nAntenna']
+    total_frames = input_data.get_remaining_frame_count()
+    num_ants = input_data.get_info()['nantenna']
     samps_per_frame = 512
     max_possible_length = int(math.ceil( total_frames / num_ants ) * samps_per_frame)
 
@@ -79,17 +81,17 @@ def generate_multiple_ants(input_file, dp_stand_ids, polarization, chunk_length=
         while any([l < chunk_length for l in fill_levels]):
             # read a frame
             try:
-                current_frame = input_data.readFrame()
+                current_frame = input_data.read_frame()
             except errors.eofError:
                 file_ended = True
                 break
 
-            current_id = current_frame.parseID()
+            current_id = current_frame.id
             for out_idx, stand in enumerate(dp_stand_ids):
                 if (stand, polarization) == current_id:
                     # this is the right stand, add to the buffer
                     if compensating_start_times:
-                        time = current_frame.getTime()
+                        time = current_frame.time
                         if time >= max(start_times):
                             start_times[out_idx] = time
                             chunk_buffer[out_idx][:samps_per_frame] = current_frame.data.iq
@@ -164,8 +166,8 @@ def extract_multiple_ants(input_file, dp_stand_ids, polarization, max_length=-1,
 
     input_data = LWASVDataFile(input_file)
 
-    total_frames = input_data.getRemainingFrameCount()
-    num_ants = input_data.getInfo()['nAntenna']
+    total_frames = input_data.get_remaining_frame_count()
+    num_ants = input_data.get_info()['nantenna']
     samps_per_frame = 512
     max_possible_length = int(math.ceil( total_frames / num_ants ) * samps_per_frame)
 
@@ -183,15 +185,15 @@ def extract_multiple_ants(input_file, dp_stand_ids, polarization, max_length=-1,
 
     fill_levels = [0] * len(dp_stand_ids)
 
-    # while input_data.getRemainingFrameCount() > 0:
+    # while input_data.get_remaining_frame_count() > 0:
     while any([l < max_length for l in fill_levels]):
         try:
-            current_frame = input_data.readFrame()
+            current_frame = input_data.read_frame()
         except errors.eofError:
             print("--| EOF reached before maximum length.")
             break
 
-        current_id = current_frame.parseID()
+        current_id = current_frame.id
 
         # check if this frame is one we want
         matching_stand = next((s for s in dp_stand_ids if (s, polarization) == current_id), -1)
@@ -240,8 +242,8 @@ def extract_single_ant(input_file, dp_stand_id, polarization, max_length=-1):
     input_data = LWASVDataFile(input_file)
     output_data = []
 
-    total_frames = input_data.getRemainingFrameCount()
-    num_ants = input_data.getInfo()['nAntenna']
+    total_frames = input_data.get_remaining_frame_count()
+    num_ants = input_data.get_info()['nantenna']
     samps_per_frame = 512
     max_possible_length = math.ceil( total_frames / num_ants ) * samps_per_frame
 
@@ -254,11 +256,11 @@ def extract_single_ant(input_file, dp_stand_id, polarization, max_length=-1):
     print("--| Extracting from stand {}, pol {}".format(dp_stand_id, polarization))
     print("--| Extracting {} of a possible {} samples".format(max_length, max_possible_length))
 
-    # while input_data.getRemainingFrameCount() > 0:
+    # while input_data.get_remaining_frame_count() > 0:
     while len(output_data) < max_length:
-        current_frame = input_data.readFrame()
+        current_frame = input_data.read_frame()
 
-        if current_frame.parseID() == (dp_stand_id, polarization):
+        if current_frame.id == (dp_stand_id, polarization):
             for i in range(len(current_frame.data.iq)):
                 output_data.append(current_frame.data.iq[i])
 
@@ -291,9 +293,9 @@ def meta_to_txt(filename):
     # Poll the TBN file for its specifics
     with open(simple_name + ".txt", 'w') as meta:
         meta.write('TBN Metadata:\n')
-        for key,value in idfN.getInfo().iteritems():
+        for key, value in idfN.get_info().items():
             if key is "tStart":
-                meta.write("Human tStart: " + str(datetime.utcfromtimestamp(value))+"\n")
+                meta.write("Human tStart: " + str(value.utc_datetime)+"\n")
             meta.write("  %s: %s\n" % (str(key), str(value)))
 
 
@@ -302,7 +304,7 @@ def meta_to_txt(filename):
 def pull_meta(filename, key):
     """ Pulls out metadata from a TBN file given a key.
 
-    Possible keys: 'dataBits','FrameSize','Human tStart', 'tStart','nAntenna','sampleRate','nFrames','tStartSamples','freq1','size'
+    Possible keys: 'dataBits','FrameSize','Human tStart', 'tStart','nantenna','sampleRate','nFrames','tStartSamples','freq1','size'
 
     Parameters
     ----------
@@ -316,9 +318,9 @@ def pull_meta(filename, key):
         tbnKey = 'tStart'
     else:
         tbnKey = key
-    value = idfN.getInfo()[tbnKey]
+    value = idfN.get_info()[tbnKey]
     if key == 'Human tStart':
-        return str(datetime.utcfromtimestamp(value))
+        return str(value.utc_datetime)
     else:
         return str(value)
 
@@ -377,11 +379,11 @@ def count_frames(filename):
     bigDict = {}
 
     idfN = LWASVDataFile(filename)
-    total_num_frames = idfN.getRemainingFrameCount()
+    total_num_frames = idfN.get_remaining_frame_count()
 
-    while idfN.getRemainingFrameCount() > 0:
-        current_frame = idfN.readFrame()
-        key = str(current_frame.parseID())
+    while idfN.get_remaining_frame_count() > 0:
+        current_frame = idfN.read_frame()
+        key = str(current_frame.id)
         
         try:
             bigDict[key] = bigDict[key] + 1
@@ -412,41 +414,6 @@ def count_frames(filename):
     print("---> Sum of frames = {}".format(total_calculated_frames))
     print("-> Antennas")
     print("---> Sum of antennas = {}".format(sum(antsFramesDict.keys())))
-
-
-#! shouldnt be used. horrible and slow as heeeell. Just preallocate and then truncate after.
-# def get_min_frame_count(filename):
-#     """Prints out smallest frame count of all antennas.
-
-#     Parameters
-#     ----------
-#     filename : string
-#                 name of file to be read (may end in dat, tbn, or nothing)
-
-#     Returns
-#     -------
-#     int
-#         minimum number of frames available
-#     """
-
-#     bigDict = {}
-
-#     idfN = LWASVDataFile(filename)
-
-#     while idfN.getRemainingFrameCount() > 0:
-#         current_frame = idfN.readFrame()
-#         # key = str(current_frame.parseID())
-#         key = current_frame.parseID()
-        
-#         try:
-#             bigDict[key] += 1
-#         except KeyError:
-#             bigDict[key] = 1
-
-#     min_count = min(bigDict.values())
-
-#     return min_count
-
 
 
 def TBN_to_freq_bin_matrix_indexed_by_dp_stand(filename, Fc, f1, fft_size=512, Fs=100000, polarization=0):
@@ -482,24 +449,24 @@ def TBN_to_freq_bin_matrix_indexed_by_dp_stand(filename, Fc, f1, fft_size=512, F
     input_data = LWASVDataFile(filename)
 
     lwasv = stations.lwasv
-    num_stands = len(lwasv.getStands())
+    num_stands = len(lwasv.stands)
     num_ants = num_stands/2
 
     #how many frames in total
-    frame_count = input_data.getRemainingFrameCount()
+    frame_count = input_data.get_remaining_frame_count()
     
     num_frames_per_ant = frame_count/num_ants
 
     # plus 1 to have space for a counter
     output_data = np.zeros((num_stands, num_frames_per_ant+1), dtype=np.complex64)
 
-    current_frame = input_data.readFrame()
+    current_frame = input_data.read_frame()
     # iq_size = len(current_frame.data.iq)
 
     count=1
 
-    while input_data.getRemainingFrameCount() > 0:
-        (dp_stand_id, ant_polarization) = current_frame.parseID()
+    while input_data.get_remaining_frame_count() > 0:
+        (dp_stand_id, ant_polarization) = current_frame.id
         if ant_polarization == polarization:
             #NOT the same thing as the LWA stand number
             index = dp_stand_id - 1
@@ -517,7 +484,7 @@ def TBN_to_freq_bin_matrix_indexed_by_dp_stand(filename, Fc, f1, fft_size=512, F
                 # update counter
                 output_data[index, 0] = count
         # Get frame for next iteration
-        current_frame = input_data.readFrame()
+        current_frame = input_data.read_frame()
 
     # Remove counter
     output_data = output_data[:,1:]
@@ -544,7 +511,7 @@ def dp_stand_indexed_matrix_to_ant_indexed_matrix(dp_stand_arr):
 
     lwasv = stations.lwasv
 
-    antennas = lwasv.getAntennas()
+    antennas = lwasv.antennas
     # divide by two because a single polarization
     num_antennas = len(antennas)/2
 
@@ -580,9 +547,9 @@ def write_single_antenna_to_binary_file(input_file, dp_stand_id, polarization, o
     input_data = LWASVDataFile(input_file)
 
     with open(output_file, 'ab') as f:
-        while input_data.getRemainingFrameCount() > 0:
-            current_frame = input_data.readFrame()
-            if current_frame.parseID() == (dp_stand_id, polarization):
+        while input_data.get_remaining_frame_count() > 0:
+            current_frame = input_data.read_frame()
+            if current_frame.id == (dp_stand_id, polarization):
                 float_arr = np.array(current_frame.data.iq).view(float)
                 float_arr.tofile(f)
 
@@ -629,8 +596,8 @@ def extract_single_ant_from_end(input_file, dp_stand_id, polarization, max_lengt
     input_data = LWASVDataFile(input_file)
     output_data = []
 
-    total_frames = input_data.getRemainingFrameCount()
-    num_ants = input_data.getInfo()['nAntenna']
+    total_frames = input_data.get_remaining_frame_count()
+    num_ants = input_data.getInfo()['nantenna']
     samps_per_frame = 512
     max_possible_length = math.ceil( total_frames / num_ants ) * samps_per_frame
 
@@ -643,11 +610,11 @@ def extract_single_ant_from_end(input_file, dp_stand_id, polarization, max_lengt
     print("--| Extracting from stand {}, pol {}".format(dp_stand_id, polarization))
     print("--| Extracting {} of a possible {} samples".format(max_length, max_possible_length))
 
-    while input_data.getRemainingFrameCount() > 0:
+    while input_data.get_remaining_frame_count() > 0:
     # while len(output_data) < max_length:
-        current_frame = input_data.readFrame()
+        current_frame = input_data.read_frame()
 
-        if current_frame.parseID() == (dp_stand_id, polarization):
+        if current_frame.id == (dp_stand_id, polarization):
             for i in range(len(current_frame.data.iq)):
                 output_data.append(current_frame.data.iq[i])
             if len(output_data) > max_length:
@@ -682,8 +649,8 @@ def extract_single_ant_from_middle(input_file, dp_stand_id, polarization, max_le
     input_data = LWASVDataFile(input_file)
     output_data = []
 
-    total_frames = input_data.getRemainingFrameCount()
-    num_ants = input_data.getInfo()['nAntenna']
+    total_frames = input_data.get_remaining_frame_count()
+    num_ants = input_data.getInfo()['nantenna']
     samps_per_frame = 512
     max_possible_length = math.ceil( total_frames / num_ants ) * samps_per_frame
 
@@ -697,12 +664,12 @@ def extract_single_ant_from_middle(input_file, dp_stand_id, polarization, max_le
     print("--| Extracting {} of a possible {} samples".format(max_length, max_possible_length))
 
     while len(output_data) < max_length:
-    # while input_data.getRemainingFrameCount() > 0:
-        current_frame = input_data.readFrame()
+    # while input_data.get_remaining_frame_count() > 0:
+        current_frame = input_data.read_frame()
         current_tstamp = current_frame.getTime()
 
         if current_tstamp >= tstart:
-            if current_frame.parseID() == (dp_stand_id, polarization):
+            if current_frame.id == (dp_stand_id, polarization):
                 for i in range(len(current_frame.data.iq)):
                     output_data.append(current_frame.data.iq[i])
 

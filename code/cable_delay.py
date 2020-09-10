@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 
 import argparse
 import numpy as np
@@ -6,7 +6,7 @@ from lsl.common import stations
 import load_lwa_station
 
 def get_cable_delay(station, standid, pol, fc, verbose=False, fs=None):
-    ants = station.getAntennas()
+    ants = station.antennas
     a = next(a for a in ants if a.stand.id == standid and a.pol == pol)
     delay_s = a.cable.delay(fc)
     delay_rad = delay_s * 2 * np.pi * fc
@@ -17,7 +17,7 @@ def get_cable_delay(station, standid, pol, fc, verbose=False, fs=None):
 def main(args):
     # get antenna info for the selected station
     station = load_lwa_station.parse_args(args)
-    antennas = station.getAntennas() 
+    antennas = station.antennas 
     # choose the right antenna
     a = next(a for a in antennas if a.id == args.antenna_id)
     # cable delay is in seconds so we must convert to radians

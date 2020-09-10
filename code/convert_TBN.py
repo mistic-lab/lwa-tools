@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 """
 Script that converts TBN data into hdf5 files.
 """
@@ -83,14 +84,14 @@ def main(args):
 
     # For getting output array size
     lwasv = stations.lwasv
-    num_stands = len(lwasv.getStands())
+    num_stands = len(lwasv.stands)
     num_ants = num_stands/2
     min_frames = get_min_frame_count(input_file)
     print("-| Minimum number of frames is: {}".format(min_frames))
     print("-| Number of antennas per polarization: {}".format(num_ants))
 
     # Annoying to do this here
-    current_frame = input_data.readFrame()
+    current_frame = input_data.read_frame()
     iq_size = len(current_frame.data.iq)
 
     # Shape is the datasize plus 1 for a counter at each element
@@ -109,9 +110,9 @@ def main(args):
 
         # Add attributes to group
         print("-| Adding TBN metadata as attributes to the parent group")
-        for key, value in input_data.getInfo().iteritems():
+        for key, value in input_data.get_info().items():
             if key is "tStart":
-                parent.attrs["Human tStart"] = str(datetime.utcfromtimestamp(value))
+                parent.attrs["Human tStart"] = str(value.utc_datetime)
             parent.attrs[key] = value
             print("--| key: {}  | value: {}".format(key, value))
         
@@ -121,14 +122,14 @@ def main(args):
         pol1 = parent.create_dataset("pol1", output_shape, dtype=np.complex64)#, compression='lzf')
         
         # For progress bar
-        totalFrames = input_data.getRemainingFrameCount()
+        totalFrames = input_data.get_remaining_frame_count()
         current_iteration = 0
 
         print("-| Beginning to build output from input")
-        while input_data.getRemainingFrameCount() > 0:
+        while input_data.get_remaining_frame_count() > 0:
             current_iteration += 1
-            printProgressBar(current_iteration,totalFrames)
-            (frame_dp_stand_id, frame_ant_polarization) = current_frame.parseID()
+            printProgressBar(current_iteration, totalFrames)
+            (frame_dp_stand_id, frame_ant_polarization) = current_frame.id
 
             frameData = current_frame.data.iq
 
@@ -153,7 +154,7 @@ def main(args):
 
 
             # Get frame for next iteration
-            current_frame = input_data.readFrame()
+            current_frame = input_data.read_frame()
 
     print("\nDONE")
 

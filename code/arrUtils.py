@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 ##########
 # Author: Nicholas Bruce
 # Date: July 18 2019
