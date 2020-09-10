@@ -35,7 +35,7 @@ def main(args):
     # Get the center frequency from args and the sampling rate and measurement
     # center frequency after downmixing from the H5 file
     f_c = args.center_freq
-    f_s = h5_file[data_id].attrs['sampleRate']
+    f_s = h5_file[data_id].attrs['sample_rate']
     f_center = h5_file[data_id].attrs['freq1']
     f_c_dm = f_c - f_center # downmixed center freq
 
@@ -91,7 +91,7 @@ def main(args):
         ref_ant_no = args.ref_stand * 2 - 1
         sec_ant_nos = [n * 2 - 1 for n in args.secondary_stands]
 
-    cmd_list = ['python2', 'cable_delay.py', str(f_c)]
+    cmd_list = ['python3', 'cable_delay.py', str(f_c)]
 
     if args.lwasv:
         cmd_list = cmd_list + ['-s']
@@ -108,7 +108,7 @@ def main(args):
     # along the wavevector. We need LSL for this, so we call an external python 2 script.
 
     # -r suppresses all output except relative baselines
-    cmd_list = ['python2','distanceAlongWavevector.py', '-r']
+    cmd_list = ['python3','distanceAlongWavevector.py', '-r']
 
     if args.lwasv:
         cmd_list.append('-s') # pass along which station we're using

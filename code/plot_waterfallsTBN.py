@@ -20,7 +20,7 @@ def main(args):
 
         full_fname=directory+f
 
-        fs = float(pull_meta(full_fname, 'sampleRate'))
+        fs = float(pull_meta(full_fname, 'sample_rate'))
         samp_len = t_len * fs
         tStart = pull_meta(full_fname, 'Human tStart')
         fc = float(pull_meta(full_fname, 'freq1'))

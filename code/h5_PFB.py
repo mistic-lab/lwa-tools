@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 """
 Script that runs all of the h5 time streams through a PFB and DFT.
 """

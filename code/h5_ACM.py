@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 """
 Script that runs all of the h5 PFBs in a file into an ACM.
 """

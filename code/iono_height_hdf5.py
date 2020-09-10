@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 # coding: utf-8
 import h5py
 import numpy as np
@@ -52,7 +53,7 @@ plt.close('all')
 fig, ax = plt.subplots(3, 1, figsize=(10,10))
 #fig2, ax2 = plt.subplots(1,1)
 
-_, _, tx_rx_distance = station.getPointingAndDistance((transmitter_coords[0], transmitter_coords[1], 0))
+_, _, tx_rx_distance = station.get_pointing_and_distance((transmitter_coords[0], transmitter_coords[1], 0))
 
 for k in f['relative'].keys():
     print("\n" + k)

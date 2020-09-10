@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
 """Example script to read in the positions of stands at LWA-1 and make a plot
@@ -25,7 +25,7 @@ def main(args):
 
 
     station = load_lwa_station.parse_args(args)
-    stands = station.getStands()
+    stands = station.stands
 
 
     # data format 

@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 import numpy as np
 
 def point_source_visibility_model(u, v, l, m):

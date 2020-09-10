@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -218,7 +218,7 @@ if __name__ == "__main__":
     #baselines, visibilities = compute_visibilities(dfile, ants, target_freq)
     dfile.close()
 
-    azimuth = station.getPointingAndDistance(transmitter_coords + [0])[0]
+    azimuth = station.get_pointing_and_distance(transmitter_coords + [0])[0]
 
     bl1d = project_baselines(baselines, azimuth)
     phases = np.angle(visibilities[0])
