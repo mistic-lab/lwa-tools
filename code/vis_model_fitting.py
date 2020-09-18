@@ -121,7 +121,13 @@ def main(args):
 
     k = 0
 
-    for bl, vis in compute_visibilities_gen(tbnf, valid_ants, args.tx_freq, integration_length=integration_length, fft_length=fft_len, use_pol=use_pol, use_pfb=use_pfb):
+    for bl, freqs, vis in compute_visibilities_gen(tbnf, valid_ants, integration_length=integration_length, fft_length=fft_len, use_pol=use_pol, use_pfb=use_pfb):
+
+        # we only want the bin nearest to our frequency
+        target_bin = np.argmin([abs(args.tx_freq - f) for f in freqs])
+        
+        vis = vis[:, target_bin]
+        freqs = freqs[target_bin]
         
         # extract the baseline measurements from the baseline object pairs
         bl2d = np.array([np.array([b[0].stand.x - b[1].stand.x, b[0].stand.y - b[1].stand.y]) for b in bl])

@@ -81,7 +81,7 @@ def compute_visibilities(tbn_file, ants, target_freq, station=stations.lwasv, in
 
     print("\nComputing Visibilities:")
 
-    vis_data = np.zeros((n_integrations, n_baselines), dtype=complex)
+    vis_data = np.zeros((n_integrations, n_baselines, fft_length), dtype=complex)
 
     for i in range(0, n_integrations):
         print("| Integration {}/{}".format(i, n_integrations-1))
@@ -93,17 +93,17 @@ def compute_visibilities(tbn_file, ants, target_freq, station=stations.lwasv, in
 
         baseline_pairs, freqs, visibilities = fxc.FXMaster(data, ants, LFFT=fft_length, pfb=use_pfb, include_auto=False, verbose=True, sample_rate=sample_rate, central_freq=center_freq, Pol=pol_string, return_baselines=True, gain_correct=True)
 
-        # we only want the bin nearest to our target frequency
-        target_bin = np.argmin([abs(target_freq - f) for f in freqs])
+        # # we only want the bin nearest to our target frequency
+        # target_bin = np.argmin([abs(target_freq - f) for f in freqs])
 
-        visibilities = visibilities[:, target_bin]
+        # visibilities = visibilities[:, target_bin]
 
-        vis_data[i, :] = visibilities
+        vis_data[i, :, :] = visibilities
 
     return (baseline_pairs, vis_data)
 
 
-def compute_visibilities_gen(tbn_file, ants, target_freq, station=stations.lwasv, integration_length=1, fft_length=16, use_pol=0, use_pfb=False):
+def compute_visibilities_gen(tbn_file, ants, station=stations.lwasv, integration_length=1, fft_length=16, use_pol=0, use_pfb=False):
     '''
     Returns a generator to integrates and correlates a TBN file. Each iteration of the generator returns the baselines and the visibilities for one integration
 
@@ -147,11 +147,6 @@ def compute_visibilities_gen(tbn_file, ants, target_freq, station=stations.lwasv
         # correlate
         baseline_pairs, freqs, visibilities = fxc.FXMaster(data, ants, LFFT=fft_length, pfb=use_pfb, include_auto=False, verbose=True, sample_rate=sample_rate, central_freq=center_freq, Pol=pol_string, return_baselines=True, gain_correct=True)
 
-        # we only want the bin nearest to our frequency
-        target_bin = np.argmin([abs(target_freq - f) for f in freqs])
-        
-        visibilities = visibilities[:, target_bin]
-
-        yield (baseline_pairs, visibilities)
+        yield (baseline_pairs, freqs, visibilities)
 
     return
