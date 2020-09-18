@@ -135,8 +135,10 @@ def main(args):
         else:
             raise RuntimeError("Nick messed up. There are two maxes. This method won't work.")
 
-        l = l[row]
-        m = m[col]
+        # l = l[row]
+        # m = m[col]
+        l = l[-col]
+        m = m[row]
 
         # Compute other values of interest
         elev, az = lm_to_ea(l, m)
