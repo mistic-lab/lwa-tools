@@ -10,6 +10,7 @@ from lsl.imaging.data import VisibilityDataSet, PolarizationDataSet
 from lsl.imaging.analysis import find_point_sources
 from lsl.imaging.utils import build_gridded_image, plot_gridded_image
 from lsl.sim import vis as simVis
+import pickle
 
 # from lsl.writer import fitsidi
 # from lsl.correlator import fx as fxc
@@ -100,7 +101,8 @@ def main(args):
 
         uvw = np.empty((len(bl), 3, len(freqs)))
         for i, f in enumerate(freqs):
-            wavelength = 3e8/f
+            # wavelength = 3e8/f # TODO this should be fixed. What is currently happening is not true.
+            wavelength = 3e8/args.tx_freq
             uvw[:,:,i] = uvw_m/wavelength
 
         dataSet = VisibilityDataSet(jd=jd, freq=freqs, baselines=bl, uvw=uvw, antennarray=antenna_array)
@@ -114,7 +116,7 @@ def main(args):
 
         # Use lsl.imaging.utils.build_gridded_image (takes a VisibilityDataSet)
         #* This could become higher resolution by setting more parameters!
-        gridded_image = build_gridded_image(dataSet, pol=pol_string, chan=target_bin)
+        gridded_image = build_gridded_image(dataSet, pol=pol_string, chan=target_bin, size=500)
 
         # Plot/extract l/m do some modelling
         # I've largely borrow this from plot_gridded_image
@@ -123,6 +125,7 @@ def main(args):
         img = np.roll(img, imgSize//2, axis=0)
         img = np.roll(img, imgSize//2, axis=1)
         l, m = gridded_image.get_LM()
+        extent = (m.max(), m.min(), l.min(), l.max())
         l = np.linspace(l.min(), l.max(), img.shape[0])
         m = np.linspace(m.min(), m.max(), img.shape[1])
         if l.shape != m.shape:
@@ -158,11 +161,17 @@ def main(args):
         # print(f"x: {x} \n y: {y} \n flux: {flux} \n sharpness: {sharpness} \n roundness: {roundness}")
 
 
-        save_all_sky = (args.all_sky and k in args.all_sky) #or (args.all_sky_every and k % args.all_sky_every == 0)# or (args.scatter_bad_fits and skip)
+        save_all_sky = (args.all_sky and k in args.all_sky) or (args.all_sky_every and k % args.all_sky_every == 0)# or (args.scatter_bad_fits and skip)
         if save_all_sky:
-            plot_gridded_image(ax, gridded_image)
-            plt.show()
-            # np.save("allsky_int_{}.npy".format(k), img)
+            ax.imshow(img, extent=extent, origin='lower', interpolation='nearest')
+            # plot_gridded_image(ax, gridded_image)
+            plt.savefig('allsky_int_{}.png'.format(k))
+
+        save_pkl_gridded = (args.pkl_gridded and k in args.pkl_gridded) or (args.pkl_gridded_every and k % args.pkl_gridded_every == 0)
+        if save_pkl_gridded:
+            quickDict={'image':img, 'extent':extent}
+            with open('gridded_allsky_int_{}.pkl'.format(k),'wb') as f:
+                pickle.dump(quickDict, f, protocol=pickle.HIGHEST_PROTOCOL)
 
         k += 1
 
@@ -196,6 +205,14 @@ if __name__ == "__main__":
             help='export all-sky plots for these integrations')
     parser.add_argument('--all-sky-every', type=int,
             help='export an all-sky plot every x integrations')
+    parser.add_argument('--pkl-gridded', type=int, nargs='*',
+            help='export gridded all sky data for these integrations')
+    parser.add_argument('--pkl-gridded-every', type=int,
+            help='export gridded all sky data every x integrations')
+    # parser.add_argument('--all-sky-with-results', type=int, nargs='*',
+    #         help='export all-sky plots with overlaid results for these integrations')
+    # parser.add_argument('--all-sky-with-results-every', type=int,
+    #         help='export an all-sky plot with overlaid results every x integrations')
     #parser.add_argument('--scatter_bad_fits', action='store_true',
     #        help='export a scatter plot when the cost threshold is exceeded')
 #     parser.add_argument('--exclude', type=int, nargs='*',

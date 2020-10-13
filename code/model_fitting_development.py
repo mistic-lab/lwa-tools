@@ -11,9 +11,9 @@ from lsl.reader.ldp import LWASVDataFile
 from plot_visibility_2d import project_baselines
 from scipy.signal import find_peaks
 from scipy.optimize import least_squares, brute, fmin
-from tqdm import tqdm
+# from tqdm import tqdm
 
-import lmfit
+# import lmfit
 
 """
 JS: This is a WIP - I haven't found a reliable way to fit to wrapped phase data :(
