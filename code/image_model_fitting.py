@@ -83,7 +83,7 @@ def main(args):
 
     k = 0
 
-    fig, ax = plt.subplots()
+    # fig, ax = plt.subplots()
     for bl, freqs, vis in compute_visibilities_gen(tbnf, valid_ants, integration_length=args.integration_length, fft_length=args.fft_len, use_pol=args.use_pol, use_pfb=args.use_pfb):
 
         # we only want the bin nearest to our frequency
@@ -94,7 +94,7 @@ def main(args):
         jd = tbnf.get_info('start_time').jd
 
         # Build antenna array
-        antenna_array = simVis.build_sim_array(station, antennas, freqs/1e9, jd=jd)
+        antenna_array = simVis.build_sim_array(station, antennas, freqs/1e9, jd=jd, force_flat=True)
 
         # build uvw
         uvw_m = np.array([np.array([b[0].stand.x - b[1].stand.x, b[0].stand.y - b[1].stand.y, b[0].stand.z - b[1].stand.z]) for b in bl])
@@ -116,7 +116,7 @@ def main(args):
 
         # Use lsl.imaging.utils.build_gridded_image (takes a VisibilityDataSet)
         #* This could become higher resolution by setting more parameters!
-        gridded_image = build_gridded_image(dataSet, pol=pol_string, chan=target_bin, size=500)
+        gridded_image = build_gridded_image(dataSet, pol=pol_string, chan=target_bin, size=80, res=0.5)
 
         # Plot/extract l/m do some modelling
         # I've largely borrow this from plot_gridded_image
@@ -159,6 +159,18 @@ def main(args):
 
         # (x, y, flux, sharpness, roundness) = find_point_sources(img)
         # print(f"x: {x} \n y: {y} \n flux: {flux} \n sharpness: {sharpness} \n roundness: {roundness}")
+
+        if args.export_npy:
+            print("Exporting u, v, w, and visibility")
+            np.save('uvw{}.npy'.format(k), uvw)
+            np.save('vis{}.npy'.format(k), vis)
+            print("Exporting gridded u, v, and visibility")
+            u,v = gridded_image.get_uv()
+            np.save('gridded-u{}.npy'.format(k), u)
+            np.save('gridded-v{}.npy'.format(k), v)
+            np.save('gridded-vis{}.npy'.format(k), gridded_image.uv)
+
+
 
 
         save_all_sky = (args.all_sky and k in args.all_sky) or (args.all_sky_every and k % args.all_sky_every == 0)# or (args.scatter_bad_fits and skip)
@@ -217,8 +229,8 @@ if __name__ == "__main__":
     #        help='export a scatter plot when the cost threshold is exceeded')
 #     parser.add_argument('--exclude', type=int, nargs='*',
 #             help="don't use these integrations in parameter guessing")
-#     parser.add_argument('--export_npy', action='store_true',
-#             help="export npy files of u, v, and visibility for each iteration - NOTE: these will take up LOTS OF SPACE if you run an entire file with this on!")
+    parser.add_argument('--export-npy', action='store_true',
+            help="export npy files of u, v, and visibility for each iteration - NOTE: these will take up LOTS OF SPACE if you run an entire file with this on!")
             
     known_transmitters.add_args(parser)
     args = parser.parse_args()

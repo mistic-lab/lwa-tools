@@ -130,23 +130,26 @@ def main(args):
         freqs = freqs[target_bin]
         
         # extract the baseline measurements from the baseline object pairs
-        bl2d = np.array([np.array([b[0].stand.x - b[1].stand.x, b[0].stand.y - b[1].stand.y]) for b in bl])
+        bl2d = np.array([np.array([b[0].stand.x - b[1].stand.x, b[0].stand.y - b[1].stand.y, b[0].stand.z-b[1].stand.z]) for b in bl])
         u = bl2d[:, 0]
         v = bl2d[:, 1]
+        w = bl2d[:, 2]
 
         # convert the baselines to wavelenths -- great job jeff
         wavelength = 3e8/args.tx_freq
 
         u = u/wavelength
         v = v/wavelength
+        w = w/wavelength
 
         # we're only fitting the phase, so normalize the visibilities
         vis = vis/np.abs(vis)
 
         if args.export_npy:
-            print("Exporting u, v, and visibility")
+            print("Exporting u, v, w, and visibility")
             np.save('u{}.npy'.format(k), u)
             np.save('v{}.npy'.format(k), v)
+            np.save('w{}.npy'.format(k), w)
             np.save('vis{}.npy'.format(k), vis)
 
         # start the optimization at the mean point of the 10 most recent fits
@@ -157,7 +160,7 @@ def main(args):
         opt_result = least_squares(
                 residual_function,
                 [l_init, m_init], 
-                args=(u, v, vis),
+                args=(u, v, w, vis),
                 method=opt_method
                 )
 
@@ -204,7 +207,7 @@ def main(args):
             print("Plotting model and data scatter")
             data = [
                 go.Scatter3d(x=u, y=v, z=np.angle(vis), mode='markers', marker=dict(size=1, color='red')),
-                go.Scatter3d(x=u, y=v, z=np.angle(point_source_visibility_model(u, v, l_out, m_out)), mode='markers', marker=dict(size=1, color='black'))
+                go.Scatter3d(x=u, y=v, z=np.angle(point_source_visibility_model(u, v, w, l_out, m_out)), mode='markers', marker=dict(size=1, color='black'))
             ]
 
             fig = go.Figure(data=data)
