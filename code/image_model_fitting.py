@@ -116,7 +116,8 @@ def main(args):
 
         # Use lsl.imaging.utils.build_gridded_image (takes a VisibilityDataSet)
         #* This could become higher resolution by setting more parameters!
-        gridded_image = build_gridded_image(dataSet, pol=pol_string, chan=target_bin, size=80, res=0.5)
+        # gridded_image = build_gridded_image(dataSet, pol=pol_string, chan=target_bin, size=80, res=0.5) #default res/size
+        gridded_image = build_gridded_image(dataSet, pol=pol_string, chan=target_bin, size=3, res=0.01) #what I think it had ought to be
 
         # Plot/extract l/m do some modelling
         # I've largely borrow this from plot_gridded_image
@@ -186,7 +187,7 @@ def main(args):
                 pickle.dump(quickDict, f, protocol=pickle.HIGHEST_PROTOCOL)
 
         k += 1
-
+        # break #!REMOVE DUH
 
     h5f.close()
     tbnf.close()
