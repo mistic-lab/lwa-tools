@@ -9,9 +9,10 @@ import plotly.graph_objects as go
 from lsl.common import stations
 from lsl.reader.ldp import LWASVDataFile
 
+from imaging_utils import lm_to_ea
 from generate_visibilities import compute_visibilities_gen, select_antennas
 import known_transmitters
-from visibility_models import point_residual_abs, point_residual_cplx, point_source_visibility_model
+from visibility_models import point_residual_abs, point_residual_cplx, point_source_visibility_model_uvw
 
 #tbn_filename = "../../data/058846_00123426_s0020.tbn"
 #target_freq = 5351500
@@ -207,7 +208,7 @@ def main(args):
             print("Plotting model and data scatter")
             data = [
                 go.Scatter3d(x=u, y=v, z=np.angle(vis), mode='markers', marker=dict(size=1, color='red')),
-                go.Scatter3d(x=u, y=v, z=np.angle(point_source_visibility_model(u, v, w, l_out, m_out)), mode='markers', marker=dict(size=1, color='black'))
+                go.Scatter3d(x=u, y=v, z=np.angle(point_source_visibility_model_uvw(u, v, w, l_out, m_out)), mode='markers', marker=dict(size=1, color='black'))
             ]
 
             fig = go.Figure(data=data)

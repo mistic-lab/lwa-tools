@@ -10,26 +10,19 @@ from lsl.imaging.data import VisibilityDataSet, PolarizationDataSet
 from lsl.imaging.analysis import find_point_sources
 from lsl.imaging.utils import build_gridded_image, plot_gridded_image
 from lsl.sim import vis as simVis
+from visibility_models import point_source_visibility_model_uv
 import pickle
 
 # from lsl.writer import fitsidi
 # from lsl.correlator import fx as fxc
 import matplotlib.pyplot as plt
 
-
-
+from imaging_utils import lm_to_ea
 from generate_visibilities import compute_visibilities_gen, select_antennas
 import known_transmitters
 
 station=stations.lwasv
 
-# TODO: This is in both vis and image fitting scripts. put it somewhere general.
-def lm_to_ea(l, m):
-    azimuth = np.pi/2 - np.arctan(m/l)
-    
-    elev = np.arccos(np.sqrt(l**2 + m**2))
-
-    return elev, azimuth
 
 def main(args):
     transmitter_coords = known_transmitters.parse_args(args)
@@ -75,7 +68,6 @@ def main(args):
         h5f.create_dataset('elevation', (n_integrations,))
         h5f.create_dataset('azimuth', (n_integrations,))
         h5f.create_dataset('height', (n_integrations,))
-#         h5f.create_dataset('skipped', (n_integrations,), dtype='bool')
 
     else:
         print("No output file specified.")
@@ -83,8 +75,20 @@ def main(args):
 
     k = 0
 
-    # fig, ax = plt.subplots()
+    save_all_sky = (args.all_sky and k in args.all_sky) or (args.all_sky_every and k % args.all_sky_every == 0)# or (args.scatter_bad_fits and skip)
+    if save_all_sky:
+        fig, ax = plt.subplots()
     for bl, freqs, vis in compute_visibilities_gen(tbnf, valid_ants, integration_length=args.integration_length, fft_length=args.fft_len, use_pol=args.use_pol, use_pfb=args.use_pfb):
+        print("VIS DTYPE:{}".format(vis.dtype))
+        print("VIS SHAPE:{}".format(vis.shape))        
+        print("FREQS DTYPE:{}".format(freqs.dtype))
+        print("FREQS SHAPE:{}".format(freqs.shape))
+        print("FREQS: {}".format(freqs))        
+        # print("BL DTYPE:{}".format(bl.dtype)) #*BL is a list
+        print("BL SHAPE:{}".format(len(bl)))
+
+        #! Normalize amplitudes
+        vis/=np.abs(vis)
 
         # we only want the bin nearest to our frequency
         target_bin = np.argmin([abs(args.tx_freq - f) for f in freqs])
@@ -92,6 +96,7 @@ def main(args):
         # Build a VisibilityDataSet with this data (lsl.imaging.data.VisibilityDataSet)
         # use_pol is 0 which fxc.pol_to_pols would return. pol_to_pols takes a string 'X' or 'XX' and outputs a 0.
         jd = tbnf.get_info('start_time').jd
+        print("JD:{}".format(jd))
 
         # Build antenna array
         antenna_array = simVis.build_sim_array(station, antennas, freqs/1e9, jd=jd, force_flat=True)
@@ -101,9 +106,19 @@ def main(args):
 
         uvw = np.empty((len(bl), 3, len(freqs)))
         for i, f in enumerate(freqs):
-            # wavelength = 3e8/f # TODO this should be fixed. What is currently happening is not true.
+            # wavelength = 3e8/f # TODO this should be fixed. What is currently happening is not true. Well it is, but only if you're looking for a specific transmitter frequency. Which I guess we are. I just mean it's not generalized.
             wavelength = 3e8/args.tx_freq
             uvw[:,:,i] = uvw_m/wavelength
+
+
+
+        #! Modelling
+        vismodel = point_source_visibility_model_uv(uvw[:,0,0],uvw[:,1,0],0.22,0.32)
+        visnew = np.empty_like(vis)
+        for i in np.arange(visnew.shape[1]):
+            visnew[:,i] = vismodel
+        vis = visnew
+
 
         dataSet = VisibilityDataSet(jd=jd, freq=freqs, baselines=bl, uvw=uvw, antennarray=antenna_array)
         if args.use_pol == 0:
@@ -114,10 +129,12 @@ def main(args):
         polDataSet = PolarizationDataSet(pol_string, data=vis)
         dataSet.append(polDataSet)
 
+
         # Use lsl.imaging.utils.build_gridded_image (takes a VisibilityDataSet)
-        #* This could become higher resolution by setting more parameters!
         # gridded_image = build_gridded_image(dataSet, pol=pol_string, chan=target_bin, size=80, res=0.5) #default res/size
-        gridded_image = build_gridded_image(dataSet, pol=pol_string, chan=target_bin, size=3, res=0.01) #what I think it had ought to be
+        # gridded_image = build_gridded_image(dataSet, pol=pol_string, chan=target_bin, size=100, res=0.3) #what I think it had ought to be if size=N and res=du
+        gridded_image = build_gridded_image(dataSet, pol=pol_string, chan=target_bin, size=3, res=0.01) #what I think it had ought to be if the docstring is true
+        # gridded_image = build_gridded_image(dataSet, pol=pol_string, chan=target_bin, size=10, res=0.05) #what I think it had ought to be if the docstring is true
 
         # Plot/extract l/m do some modelling
         # I've largely borrow this from plot_gridded_image
@@ -139,8 +156,7 @@ def main(args):
         else:
             raise RuntimeError("Nick messed up. There are two maxes. This method won't work.")
 
-        # l = l[row]
-        # m = m[col]
+        #! Note the negative
         l = l[-col]
         m = m[row]
 
@@ -154,13 +170,6 @@ def main(args):
         h5f['azimuth'][k] = az
         h5f['height'][k] = height
 
-
-        # l.dump("l_int_{}.npy".format(k))
-        # m.dump("m_int_{}.npy".format(k))
-
-        # (x, y, flux, sharpness, roundness) = find_point_sources(img)
-        # print(f"x: {x} \n y: {y} \n flux: {flux} \n sharpness: {sharpness} \n roundness: {roundness}")
-
         if args.export_npy:
             print("Exporting u, v, w, and visibility")
             np.save('uvw{}.npy'.format(k), uvw)
@@ -171,10 +180,7 @@ def main(args):
             np.save('gridded-v{}.npy'.format(k), v)
             np.save('gridded-vis{}.npy'.format(k), gridded_image.uv)
 
-
-
-
-        save_all_sky = (args.all_sky and k in args.all_sky) or (args.all_sky_every and k % args.all_sky_every == 0)# or (args.scatter_bad_fits and skip)
+        save_all_sky = (args.all_sky and k in args.all_sky) or (args.all_sky_every and k % args.all_sky_every == 0)
         if save_all_sky:
             ax.imshow(img, extent=extent, origin='lower', interpolation='nearest')
             # plot_gridded_image(ax, gridded_image)
@@ -187,7 +193,8 @@ def main(args):
                 pickle.dump(quickDict, f, protocol=pickle.HIGHEST_PROTOCOL)
 
         k += 1
-        # break #!REMOVE DUH
+        if k>=args.stop_after:
+            break
 
     h5f.close()
     tbnf.close()
@@ -222,16 +229,10 @@ if __name__ == "__main__":
             help='export gridded all sky data for these integrations')
     parser.add_argument('--pkl-gridded-every', type=int,
             help='export gridded all sky data every x integrations')
-    # parser.add_argument('--all-sky-with-results', type=int, nargs='*',
-    #         help='export all-sky plots with overlaid results for these integrations')
-    # parser.add_argument('--all-sky-with-results-every', type=int,
-    #         help='export an all-sky plot with overlaid results every x integrations')
-    #parser.add_argument('--scatter_bad_fits', action='store_true',
-    #        help='export a scatter plot when the cost threshold is exceeded')
-#     parser.add_argument('--exclude', type=int, nargs='*',
-#             help="don't use these integrations in parameter guessing")
     parser.add_argument('--export-npy', action='store_true',
             help="export npy files of u, v, and visibility for each iteration - NOTE: these will take up LOTS OF SPACE if you run an entire file with this on!")
+    parser.add_argument('--stop-after', type=int, default=999999999,
+            help='stop running after this many integrations')
             
     known_transmitters.add_args(parser)
     args = parser.parse_args()

@@ -2,11 +2,17 @@
 
 import numpy as np
 
-def point_source_visibility_model(u, v, w, l, m):
+def point_source_visibility_model_uvw(u, v, w, l, m):
     '''
     Computes visibility at u,v as if from a perfect point source located at (l,m)
     '''
     return np.exp(2j * np.pi * ( l*u + v*m + w*np.sqrt(1-l**2-m**2) ))
+
+def point_source_visibility_model_uv(u, v, l, m):
+    '''
+    Computes visibility at u,v as if from a perfect point source located at (l,m)
+    '''
+    return np.exp(2j * np.pi * ( l*u + v*m))
 
 def point_residual_cplx(params, u, v, vis):
     '''

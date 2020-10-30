@@ -132,7 +132,7 @@ def compute_visibilities_gen(tbn_file, ants, station=stations.lwasv, integration
     #sometimes strings are used to indicate polarizations
     pol_string = 'xx' if use_pol == 0 else 'yy'
 
-    n_baselines = len(ants) * (len(ants) - 1) / 2
+    # n_baselines = len(ants) * (len(ants) - 1) / 2
 
     print("\nComputing Visibilities:")
 

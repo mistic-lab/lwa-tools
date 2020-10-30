@@ -40,7 +40,7 @@ def main(args):
     stands.sort()
 
     # Load in the stand position data
-    data = numpy.zeros((len(stands)/2,3))
+    data = numpy.zeros((len(stands)//2,3))
     max_Y = 0
     min_Y = 0
     i = 0
@@ -99,10 +99,10 @@ def main(args):
     cb = plt.colorbar(c, cax=ax4, orientation='vertical', ticks=[-2, -1, 0, 1, 2])
     
     # Set the axis limits
-    ax1.set_xlim([-60, 60])
-    ax1.set_ylim([-60, 60])
-    ax2.set_xlim( ax1.get_xlim() )
-    ax3.set_ylim( ax1.get_ylim() )
+    # ax1.set_xlim([-60, 60])
+    # ax1.set_ylim([-60, 60])
+    # ax2.set_xlim( ax1.get_xlim() )
+    # ax3.set_ylim( ax1.get_ylim() )
     
     # Show n' save
     if args.suppress is not None:
