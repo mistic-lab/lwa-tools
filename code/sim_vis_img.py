@@ -51,8 +51,8 @@ def main(args):
     ## Build bl
     pol_string = 'xx' if args.use_pol == 0 else 'yy'
     pol1, pol2 = pol_to_pols(pol_string)
-    antennas1 = [a for a in antennas if a.pol == pol1]
-    antennas2 = [a for a in antennas if a.pol == pol2]
+    antennas1 = [a for a in valid_ants if a.pol == pol1]
+    antennas2 = [a for a in valid_ants if a.pol == pol2]
 
     nStands = len(antennas1)
     baselines = uvutils.get_baselines(antennas1, antennas2=antennas2, include_auto=False, indicies=True)
@@ -77,8 +77,8 @@ def main(args):
 
     if args.export_npy:
         print("Exporting modelled u, v, w, and visibility")
-        np.save('uvw{}.npy'.format(k), uvw)
-        np.save('vis{}.npy'.format(k), vis)
+        np.save('model-uvw.npy', uvw)
+        np.save('model-vis.npy', vis)
 
     ## Start to build up the data structure for VisibilityDataSet
     # we only want the bin nearest to our frequency
@@ -116,7 +116,7 @@ def main(args):
     for grid_params in all_grid_params:
         print('| Gridding and imaging with size={}, res={}, wres={}'.format(
                 grid_params['size'],grid_params['res'], grid_params['wres']))
-                
+
         gridded_image = build_gridded_image(dataSet, pol=pol_string,
             chan=target_bin, size=grid_params['size'],
             res=grid_params['res'], wres=grid_params['wres'])
@@ -124,9 +124,9 @@ def main(args):
         if args.export_npy:
             print("Exporting gridded u, v, and visibility")
             u,v = gridded_image.get_uv()
-            np.save('gridded-u{}.npy'.format(k), u)
-            np.save('gridded-v{}.npy'.format(k), v)
-            np.save('gridded-vis{}.npy'.format(k), gridded_image.uv)
+            np.save('gridded-u-size-{}-res-{}-wres-{}.npy'.format(grid_params['size'],grid_params['res'], grid_params['wres']), u)
+            np.save('gridded-v-size-{}-res-{}-wres-{}.npy'.format(grid_params['size'],grid_params['res'], grid_params['wres']), v)
+            np.save('gridded-vis-size-{}-res-{}-wres-{}.npy'.format(grid_params['size'],grid_params['res'], grid_params['wres']), gridded_image.uv)
 
         # Plot/extract l/m do some modelling
         # I've largely borrow this from plot_gridded_image

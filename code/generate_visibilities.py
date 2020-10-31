@@ -145,7 +145,10 @@ def compute_visibilities_gen(tbn_file, ants, station=stations.lwasv, integration
         data = data[[a.digitizer - 1 for a in ants], :]
 
         # correlate
-        baseline_pairs, freqs, visibilities = fxc.FXMaster(data, ants, LFFT=fft_length, pfb=use_pfb, include_auto=False, verbose=True, sample_rate=sample_rate, central_freq=center_freq, Pol=pol_string, return_baselines=True, gain_correct=True)
+        baseline_pairs, freqs, visibilities = fxc.FXMaster(data, ants, LFFT=fft_length,
+                                                pfb=use_pfb, include_auto=False, verbose=True,
+                                                sample_rate=sample_rate, central_freq=center_freq,
+                                                Pol=pol_string, return_baselines=True, gain_correct=True)
 
         yield (baseline_pairs, freqs, visibilities)
 
