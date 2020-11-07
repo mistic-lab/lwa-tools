@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 import argparse
+import sys
 import numpy as np
 import h5py
 from datetime import datetime
@@ -17,7 +18,7 @@ import pickle
 import matplotlib.pyplot as plt
 
 from visibility_models import point_source_visibility_model_uv
-from imaging_utils import lm_to_ea
+from imaging_utils import lm_to_ea, flatmirror_height, get_gimg_max
 from generate_visibilities import compute_visibilities_gen, select_antennas
 import known_transmitters
 
@@ -26,6 +27,22 @@ station=stations.lwasv
 
 
 def main(args):
+
+    ## Check we should bother doing anything
+
+    if not args.export_npy and not args.export_h5 and not args.all_sky and not args.pkl_gridded:
+        raise RuntimeError("You have not selected a data output of any type. Read the docstring and pick something for me to do.")
+
+    sizes = [int(item) for item in args.size.split(',')]
+    reses = [float(item) for item in args.res.split(',')]
+    wreses = [float(item) for item in args.wres.split(',')]
+    if len(sizes) != len(reses) and len(sizes) != len(wreses):
+        raise RuntimeError("size, res and wres must all have same number of inputs")
+    all_grid_params=[]
+    for i in range(len(sizes)):
+        all_grid_params.append({'size':sizes[i], 'res':reses[i], 'wres':wreses[i]})
+
+    ## Begin doing stuff
     transmitter_coords = known_transmitters.parse_args(args)
     if transmitter_coords:
         bearing, _, distance = station.get_pointing_and_distance(transmitter_coords + [0])
@@ -36,6 +53,36 @@ def main(args):
     antennas = station.antennas
 
     valid_ants, n_baselines = select_antennas(antennas, args.use_pol)
+
+
+    if args.export_h5:
+        h5fname="simulation-results.h5"
+        print("Output will be written to {}".format(h5fname))
+        h5f=h5py.File(h5fname,'w')
+
+        ats = h5f.attrs
+        ats['transmitter'] = args.transmitter
+        ats['tx_freq'] = args.tx_freq
+        ats['valid_ants'] = [a.id for a in valid_ants]
+        ats['n_baselines'] = n_baselines
+        ats['fft_len'] = args.fft_len
+        ats['use_pol'] = args.use_pol
+        ats['int_length'] = args.integration_length
+        ats['l_model'] = args.l_model
+        ats['m_model'] = args.m_model
+
+        h5f.create_dataset('l_est', (len(all_grid_params),))
+        h5f.create_dataset('m_est', (len(all_grid_params),))
+        h5f.create_dataset('wres', (len(all_grid_params),))
+        h5f.create_dataset('res', (len(all_grid_params),))
+        h5f.create_dataset('size', (len(all_grid_params),))
+        h5f.create_dataset('elevation', (len(all_grid_params),))
+        h5f.create_dataset('azimuth', (len(all_grid_params),))
+        h5f.create_dataset('height', (len(all_grid_params),))
+
+
+
+
 
     ## Build freqs
     freqs = np.empty((args.fft_len,),dtype=np.float64)
@@ -76,6 +123,7 @@ def main(args):
         vis[:,i] = vismodel
 
     if args.export_npy:
+        print(args.export_npy)
         print("Exporting modelled u, v, w, and visibility")
         np.save('model-uvw.npy', uvw)
         np.save('model-vis.npy', vis)
@@ -100,19 +148,11 @@ def main(args):
     polDataSet = PolarizationDataSet(pol_string, data=vis)
     dataSet.append(polDataSet)
 
-    sizes = [int(item) for item in args.size.split(',')]
-    reses = [float(item) for item in args.res.split(',')]
-    wreses = [float(item) for item in args.wres.split(',')]
-    if len(sizes) != len(reses) and len(sizes) != len(wreses):
-        raise RuntimeError("size, res and wres must all have same number of inputs")
-    all_grid_params=[]
-    for i in range(len(sizes)):
-        all_grid_params.append({'size':sizes[i], 'res':reses[i], 'wres':wreses[i]})
-
     if args.all_sky:
         fig, ax = plt.subplots()
 
     # Iterate over size/res/wres and generate multiple grids/images   
+    k=0
     for grid_params in all_grid_params:
         print('| Gridding and imaging with size={}, res={}, wres={}'.format(
                 grid_params['size'],grid_params['res'], grid_params['wres']))
@@ -128,29 +168,25 @@ def main(args):
             np.save('gridded-v-size-{}-res-{}-wres-{}.npy'.format(grid_params['size'],grid_params['res'], grid_params['wres']), v)
             np.save('gridded-vis-size-{}-res-{}-wres-{}.npy'.format(grid_params['size'],grid_params['res'], grid_params['wres']), gridded_image.uv)
 
-        # Plot/extract l/m do some modelling
-        # I've largely borrow this from plot_gridded_image
-        img = gridded_image.image()
-        imgSize = img.shape[0]
-        img = np.roll(img, imgSize//2, axis=0)
-        img = np.roll(img, imgSize//2, axis=1)
-        l, m = gridded_image.get_LM()
-        extent = (m.max(), m.min(), l.min(), l.max())
-        l = np.linspace(l.min(), l.max(), img.shape[0])
-        m = np.linspace(m.min(), m.max(), img.shape[1])
-        if l.shape != m.shape:
-            raise RuntimeError("gridded_image is not a square")
-
-        row, col = np.where(img == img.max())
-        if len(row) == 1 and len(col) == 1:
-            row = row[0]
-            col = col[0]
+        save_pkl_gridded = args.pkl_gridded and k in args.pkl_gridded
+        if args.all_sky==True or save_pkl_gridded==True:
+            l,m,img,extent=get_gimg_max(gridded_image, return_img=True)
         else:
-            raise RuntimeError("Nick messed up. There are two maxes. This method won't work.")
+            l,m=get_gimg_max(gridded_image)
 
-        #! Note the negative
-        l = l[-col]
-        m = m[row]
+        # Compute other values of interest
+        elev, az = lm_to_ea(l, m)
+        height = flatmirror_height(elev, distance)
+
+        h5f['l_est'][k] = l
+        h5f['m_est'][k] = m
+        h5f['wres'][k] = grid_params['wres']
+        h5f['res'][k] = grid_params['res']
+        h5f['size'][k] = grid_params['size']
+
+        h5f['elevation'][k] = elev
+        h5f['azimuth'][k] = az
+        h5f['height'][k] = height
 
         if args.all_sky:
             ax.imshow(img, extent=extent, origin='lower', interpolation='nearest')
@@ -166,17 +202,17 @@ def main(args):
             plt.cla()
 
 
-        save_pkl_gridded = args.pkl_gridded and k in args.pkl_gridded
         if save_pkl_gridded:
             quickDict={'image':img, 'extent':extent}
             with open('gridded_size_{}_res_{}_wres_{}.pkl'.format(
                 grid_params['size'],grid_params['res'], grid_params['wres']),
                 'wb') as f:
                 pickle.dump(quickDict, f, protocol=pickle.HIGHEST_PROTOCOL)
+        k+=1
 
 
-
-    # h5f.close()
+    if args.export_h5:
+        h5f.close()
 
 
 
@@ -198,26 +234,20 @@ if __name__ == "__main__":
             help='Jeff what is this')
     parser.add_argument('--integration_length', type=float, default=1,
             help='Integration length in seconds')
-    # parser.add_argument('-l', '--list', help='delimited list input', type=str)
     parser.add_argument('--size', type=str, default='100',
             help='Sizes of UV matrices in wavelengths')
     parser.add_argument('--res', type=str, default='1',
             help='Resolution of UV matrices')
     parser.add_argument('--wres',type=str, default='0.5',
             help='Gridding resolution of sqrt(w) when projecting to w=0')
-
-    # parser.add_argument('--size', type=int, nargs='*', default=100,
-    #         help='Sizes of UV matrices in wavelengths')
-    # parser.add_argument('--res', type=float, nargs='*', default=1,
-    #         help='Resolution of UV matrices')
-    # parser.add_argument('--wres',type=float, nargs='*', default=0.5,
-    #         help='Gridding resolution of sqrt(w) when projecting to w=0')
-    parser.add_argument('--all-sky', type=bool, default=False,
+    parser.add_argument('--all-sky', action='store_true',
             help='export all-sky plots')
     parser.add_argument('--pkl-gridded', type=int, nargs='*',
             help='export gridded all sky data for these integrations')
     parser.add_argument('--export-npy', action='store_true',
-            help="export npy files of u, v, and visibility for each iteration - NOTE: these will take up LOTS OF SPACE if you run an entire file with this on!")
+            help="export npy files of u, v, and visibility for each iteration")
+    parser.add_argument('--export-h5', action='store_true',
+            help="export result to an h5 file")
             
     known_transmitters.add_args(parser)
     args = parser.parse_args()

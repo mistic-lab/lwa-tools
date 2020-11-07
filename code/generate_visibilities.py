@@ -27,7 +27,10 @@ def extract_tbn_metadata(data_file, antennas, integration_length):
 
     return (sample_rate, center_freq, n_samples, samples_per_integration, n_integrations)
 
-def select_antennas(antennas, use_pol):
+def select_antennas(antennas, use_pol, exclude=None):
+    """
+    If you wish to skip the outrigger use exclude=[256]. You can also choose to skip other antennas in this manner.
+    """
     print("\n\nFiltering for operational antennas:")
     valid_ants = []
     for a in antennas:
@@ -38,8 +41,8 @@ def select_antennas(antennas, use_pol):
             print("| Antenna {} (stand {}, pol {}) has status {}".format(a.id, a.stand.id, a.pol, a.combined_status))
             continue
 
-        if a.stand.id == 256:
-            print("| Skipping outrigger")
+        if exclude is not None and a.stand.id in exclude:
+            print("| Skipping antenna {}".format(a.stand.id))
             continue
 
         valid_ants.append(a)

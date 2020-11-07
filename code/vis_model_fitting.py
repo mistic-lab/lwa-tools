@@ -9,7 +9,7 @@ import plotly.graph_objects as go
 from lsl.common import stations
 from lsl.reader.ldp import LWASVDataFile
 
-from imaging_utils import lm_to_ea
+from imaging_utils import lm_to_ea, flatmirror_height
 from generate_visibilities import compute_visibilities_gen, select_antennas
 import known_transmitters
 from visibility_models import point_residual_abs, point_residual_cplx, point_source_visibility_model_uvw
@@ -69,7 +69,8 @@ def main(args):
     
     antennas = station.antennas
 
-    valid_ants, n_baselines = select_antennas(antennas, use_pol)
+    # valid_ants, n_baselines = select_antennas(antennas, use_pol)
+    valid_ants, n_baselines = select_antennas(antennas, use_pol, exclude=[256]) # to exclude outrigger
 
     if args.hdf5_file:
         print("Writing output to {}".format(args.hdf5_file))
@@ -188,9 +189,8 @@ def main(args):
 
         elev, az = lm_to_ea(l_out, m_out)
 
-        # use the flat mirror ionosphere model for now
         # TODO: tilted mirror model?
-        height = (distance/2) * np.tan(elev)
+        height = flatmirror_height(elev, distance)
 
         # write data to h5 file
         h5f['l_start'][k] = l_init

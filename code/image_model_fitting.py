@@ -17,7 +17,7 @@ import pickle
 # from lsl.correlator import fx as fxc
 import matplotlib.pyplot as plt
 
-from imaging_utils import lm_to_ea
+from imaging_utils import lm_to_ea, flatmirror_height, get_gimg_max
 from generate_visibilities import compute_visibilities_gen, select_antennas
 import known_transmitters
 
@@ -37,7 +37,8 @@ def main(args):
     
     antennas = station.antennas
 
-    valid_ants, n_baselines = select_antennas(antennas, args.use_pol)
+    # valid_ants, n_baselines = select_antennas(antennas, args.use_pol)
+    valid_ants, n_baselines = select_antennas(antennas, use_pol, exclude=[256]) # to exclude outrigger
 
     if args.hdf5_file:
         print("Writing output to {}".format(args.hdf5_file))
@@ -79,15 +80,8 @@ def main(args):
     if save_all_sky:
         fig, ax = plt.subplots()
     for bl, freqs, vis in compute_visibilities_gen(tbnf, valid_ants, integration_length=args.integration_length, fft_length=args.fft_len, use_pol=args.use_pol, use_pfb=args.use_pfb):
-        print("VIS DTYPE:{}".format(vis.dtype))
-        print("VIS SHAPE:{}".format(vis.shape))        
-        print("FREQS DTYPE:{}".format(freqs.dtype))
-        print("FREQS SHAPE:{}".format(freqs.shape))
-        print("FREQS: {}".format(freqs))        
-        # print("BL DTYPE:{}".format(bl.dtype)) #*BL is a list
-        print("BL SHAPE:{}".format(len(bl)))
 
-        #! Normalize amplitudes
+        # Normalize amplitudes since we want it based on phase
         vis/=np.abs(vis)
 
         # we only want the bin nearest to our frequency
@@ -110,16 +104,6 @@ def main(args):
             wavelength = 3e8/args.tx_freq
             uvw[:,:,i] = uvw_m/wavelength
 
-
-
-        #! Modelling
-        vismodel = point_source_visibility_model_uv(uvw[:,0,0],uvw[:,1,0],0.22,0.32)
-        visnew = np.empty_like(vis)
-        for i in np.arange(visnew.shape[1]):
-            visnew[:,i] = vismodel
-        vis = visnew
-
-
         dataSet = VisibilityDataSet(jd=jd, freq=freqs, baselines=bl, uvw=uvw, antennarray=antenna_array)
         if args.use_pol == 0:
             pol_string = 'XX'
@@ -133,36 +117,20 @@ def main(args):
         # Use lsl.imaging.utils.build_gridded_image (takes a VisibilityDataSet)
         # gridded_image = build_gridded_image(dataSet, pol=pol_string, chan=target_bin, size=80, res=0.5) #default res/size
         # gridded_image = build_gridded_image(dataSet, pol=pol_string, chan=target_bin, size=100, res=0.3) #what I think it had ought to be if size=N and res=du
-        gridded_image = build_gridded_image(dataSet, pol=pol_string, chan=target_bin, size=3, res=0.01) #what I think it had ought to be if the docstring is true
+        # gridded_image = build_gridded_image(dataSet, pol=pol_string, chan=target_bin, size=3, res=0.01) #what I think it had ought to be if the docstring is true
         # gridded_image = build_gridded_image(dataSet, pol=pol_string, chan=target_bin, size=10, res=0.05) #what I think it had ought to be if the docstring is true
+        gridded_image = build_gridded_image(dataSet, pol=pol_string, chan=target_bin, size=20, res=0.5) #from sim
 
-        # Plot/extract l/m do some modelling
-        # I've largely borrow this from plot_gridded_image
-        img = gridded_image.image()
-        imgSize = img.shape[0]
-        img = np.roll(img, imgSize//2, axis=0)
-        img = np.roll(img, imgSize//2, axis=1)
-        l, m = gridded_image.get_LM()
-        extent = (m.max(), m.min(), l.min(), l.max())
-        l = np.linspace(l.min(), l.max(), img.shape[0])
-        m = np.linspace(m.min(), m.max(), img.shape[1])
-        if l.shape != m.shape:
-            raise RuntimeError("gridded_image is not a square")
-
-        row, col = np.where(img == img.max())
-        if len(row) == 1 and len(col) == 1:
-            row = row[0]
-            col = col[0]
+        save_all_sky = (args.all_sky and k in args.all_sky) or (args.all_sky_every and k % args.all_sky_every == 0)
+        save_pkl_gridded = (args.pkl_gridded and k in args.pkl_gridded) or (args.pkl_gridded_every and k % args.pkl_gridded_every == 0)
+        if save_all_sky==True or save_pkl_gridded==True:
+            l, m, img, extent = get_gimg_max(gridded_image, return_img=True)
         else:
-            raise RuntimeError("Nick messed up. There are two maxes. This method won't work.")
-
-        #! Note the negative
-        l = l[-col]
-        m = m[row]
+            l,m = get_gimg_max(gridded_image)
 
         # Compute other values of interest
         elev, az = lm_to_ea(l, m)
-        height = (distance/2) * np.tan(elev)
+        height = flatmirror_height(elev, distance)
 
         h5f['l_est'][k] = l
         h5f['m_est'][k] = m
@@ -180,13 +148,11 @@ def main(args):
             np.save('gridded-v{}.npy'.format(k), v)
             np.save('gridded-vis{}.npy'.format(k), gridded_image.uv)
 
-        save_all_sky = (args.all_sky and k in args.all_sky) or (args.all_sky_every and k % args.all_sky_every == 0)
         if save_all_sky:
             ax.imshow(img, extent=extent, origin='lower', interpolation='nearest')
             # plot_gridded_image(ax, gridded_image)
             plt.savefig('allsky_int_{}.png'.format(k))
 
-        save_pkl_gridded = (args.pkl_gridded and k in args.pkl_gridded) or (args.pkl_gridded_every and k % args.pkl_gridded_every == 0)
         if save_pkl_gridded:
             quickDict={'image':img, 'extent':extent}
             with open('gridded_allsky_int_{}.pkl'.format(k),'wb') as f:
