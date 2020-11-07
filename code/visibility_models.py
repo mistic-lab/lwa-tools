@@ -37,6 +37,7 @@ def point_residual_abs(params, u, v, w, vis):
     '''
     l = params[0]
     m = params[1]
-    mc = point_source_visibility_model(u, v, w, l, m)
+    # mc = point_source_visibility_model_uvw(u, v, w, l, m)
+    mc = point_source_visibility_model_uv(u, v, l, m)
 
     return np.abs(mc - vis)

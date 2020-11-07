@@ -38,7 +38,7 @@ def main(args):
     antennas = station.antennas
 
     # valid_ants, n_baselines = select_antennas(antennas, args.use_pol)
-    valid_ants, n_baselines = select_antennas(antennas, use_pol, exclude=[256]) # to exclude outrigger
+    valid_ants, n_baselines = select_antennas(antennas, args.use_pol, exclude=[256]) # to exclude outrigger
 
     if args.hdf5_file:
         print("Writing output to {}".format(args.hdf5_file))
@@ -90,7 +90,6 @@ def main(args):
         # Build a VisibilityDataSet with this data (lsl.imaging.data.VisibilityDataSet)
         # use_pol is 0 which fxc.pol_to_pols would return. pol_to_pols takes a string 'X' or 'XX' and outputs a 0.
         jd = tbnf.get_info('start_time').jd
-        print("JD:{}".format(jd))
 
         # Build antenna array
         antenna_array = simVis.build_sim_array(station, antennas, freqs/1e9, jd=jd, force_flat=True)
