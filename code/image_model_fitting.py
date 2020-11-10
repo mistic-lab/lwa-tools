@@ -92,7 +92,7 @@ def main(args):
         jd = tbnf.get_info('start_time').jd
 
         # Build antenna array
-        antenna_array = simVis.build_sim_array(station, antennas, freqs/1e9, jd=jd, force_flat=True)
+        antenna_array = simVis.build_sim_array(station, valid_ants, freqs/1e9, jd=jd, force_flat=True)
 
         # build uvw
         uvw_m = np.array([np.array([b[0].stand.x - b[1].stand.x, b[0].stand.y - b[1].stand.y, b[0].stand.z - b[1].stand.z]) for b in bl])
@@ -114,11 +114,11 @@ def main(args):
 
 
         # Use lsl.imaging.utils.build_gridded_image (takes a VisibilityDataSet)
-        # gridded_image = build_gridded_image(dataSet, pol=pol_string, chan=target_bin, size=80, res=0.5) #default res/size
+        gridded_image = build_gridded_image(dataSet, pol=pol_string, chan=target_bin, size=80, res=0.5) #default res/size
         # gridded_image = build_gridded_image(dataSet, pol=pol_string, chan=target_bin, size=100, res=0.3) #what I think it had ought to be if size=N and res=du
         # gridded_image = build_gridded_image(dataSet, pol=pol_string, chan=target_bin, size=3, res=0.01) #what I think it had ought to be if the docstring is true
         # gridded_image = build_gridded_image(dataSet, pol=pol_string, chan=target_bin, size=10, res=0.05) #what I think it had ought to be if the docstring is true
-        gridded_image = build_gridded_image(dataSet, pol=pol_string, chan=target_bin, size=20, res=0.5) #from sim
+        # gridded_image = build_gridded_image(dataSet, pol=pol_string, chan=target_bin, size=20, res=0.5) #from sim
 
         save_all_sky = (args.all_sky and k in args.all_sky) or (args.all_sky_every and k % args.all_sky_every == 0)
         save_pkl_gridded = (args.pkl_gridded and k in args.pkl_gridded) or (args.pkl_gridded_every and k % args.pkl_gridded_every == 0)
@@ -180,7 +180,7 @@ if __name__ == "__main__":
             help='transmitter frequency')
     parser.add_argument('--fft_len', type=int, default=16,
             help='Size of FFT used in correlator')
-    parser.add_argument('--use_pfb', type=bool, default=False,
+    parser.add_argument('--use_pfb', action='store_true',
             help='Whether to use PFB in correlator')
     parser.add_argument('--use_pol', type=int, default=0,
             help='Jeff what is this')

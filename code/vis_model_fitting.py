@@ -27,10 +27,6 @@ from visibility_models import point_residual_abs, point_residual_cplx, point_sou
 #m_guess = 0.031
 
 # to be made into args:
-fft_len = 16
-use_pfb = False
-use_pol = 0
-integration_length = 1
 residual_function = point_residual_abs
 opt_method = 'lm'
 
@@ -49,12 +45,6 @@ def ls_cost(params, u, v, vis, resid=point_residual_abs):
     r = resid(params, u, v, vis)
     return np.dot(r,r)
 
-def lm_to_ea(l, m):
-    azimuth = np.pi/2 - np.arctan(m/l)
-    
-    elev = np.arccos(np.sqrt(l**2 + m**2))
-
-    return elev, azimuth
 
 def main(args):
     transmitter_coords = known_transmitters.parse_args(args)
@@ -70,7 +60,7 @@ def main(args):
     antennas = station.antennas
 
     # valid_ants, n_baselines = select_antennas(antennas, use_pol)
-    valid_ants, n_baselines = select_antennas(antennas, use_pol, exclude=[256]) # to exclude outrigger
+    valid_ants, n_baselines = select_antennas(antennas, args.use_pol, exclude=[256]) # to exclude outrigger
 
     if args.hdf5_file:
         print("Writing output to {}".format(args.hdf5_file))
@@ -88,16 +78,16 @@ def main(args):
         ats['valid_ants'] = [a.id for a in valid_ants]
         ats['n_baselines'] = n_baselines
         ats['center_freq'] = tbnf.get_info('freq1')
-        ats['res_function'] = residual_function.__name__
+        ats['fft_len'] = args.fft_len
+        ats['use_pfb'] = args.use_pfb
+        ats['use_pol'] = args.use_pol
+        ats['int_length'] = args.integration_length
+        #TODO add to argparse maybe
         ats['opt_method'] = opt_method
-        # TODO: use cmd line parametersfor these
-        ats['fft_len'] = fft_len
-        ats['use_pfb'] = use_pfb
-        ats['use_pol'] = use_pol
-        ats['int_length'] = integration_length
+        ats['res_function'] = residual_function.__name__
 
         n_samples = tbnf.get_info('nframe') / tbnf.get_info('nantenna')
-        samples_per_integration = int(integration_length * tbnf.get_info('sample_rate') / 512)
+        samples_per_integration = int(args.integration_length * tbnf.get_info('sample_rate') / 512)
         n_integrations = n_samples / samples_per_integration
         h5f.create_dataset('l_start', (n_integrations,))
         h5f.create_dataset('m_start', (n_integrations,))
@@ -122,8 +112,7 @@ def main(args):
     height_est = np.array([])
 
     k = 0
-
-    for bl, freqs, vis in compute_visibilities_gen(tbnf, valid_ants, integration_length=integration_length, fft_length=fft_len, use_pol=use_pol, use_pfb=use_pfb):
+    for bl, freqs, vis in compute_visibilities_gen(tbnf, valid_ants, integration_length=args.integration_length, fft_length=args.fft_len, use_pol=args.use_pol, use_pfb=args.use_pfb):
 
         # we only want the bin nearest to our frequency
         target_bin = np.argmin([abs(args.tx_freq - f) for f in freqs])
@@ -243,12 +232,18 @@ if __name__ == "__main__":
             help='initial guess for l parameter')
     parser.add_argument('m_guess', type=float,
             help='initial guess for m parameter')
+    parser.add_argument('--fft_len', type=int, default=16,
+            help='Size of FFT used in correlator')
+    parser.add_argument('--use_pfb', action='store_true',
+            help='Whether to use PFB in correlator')
+    parser.add_argument('--use_pol', type=int, default=0,
+            help='Jeff what is this')
+    parser.add_argument('--integration_length', type=float, default=1,
+            help='Integration length in seconds')
     parser.add_argument('--scatter', type=int, nargs='*',
             help='export scatter plots for these integrations - warning: each scatter plot is about 6MB')
     parser.add_argument('--scatter_every', type=int,
             help='export a scatter plot every x integrations')
-    #parser.add_argument('--scatter_bad_fits', action='store_true',
-    #        help='export a scatter plot when the cost threshold is exceeded')
     parser.add_argument('--exclude', type=int, nargs='*',
             help="don't use these integrations in parameter guessing")
     parser.add_argument('--export_npy', action='store_true',

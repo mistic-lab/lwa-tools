@@ -33,14 +33,29 @@ def main(args):
     if not args.export_npy and not args.export_h5 and not args.all_sky and not args.pkl_gridded:
         raise RuntimeError("You have not selected a data output of any type. Read the docstring and pick something for me to do.")
 
-    sizes = [int(item) for item in args.size.split(',')]
-    reses = [float(item) for item in args.res.split(',')]
+    # Normalize all inputs to the same length
+    sizes  = [int(item) for item in args.size.split(',')]
+    reses  = [float(item) for item in args.res.split(',')]
     wreses = [float(item) for item in args.wres.split(',')]
-    if len(sizes) != len(reses) and len(sizes) != len(wreses):
-        raise RuntimeError("size, res and wres must all have same number of inputs")
+    maxinputlen = max(len(sizes), len(reses), len(wreses))
+    if len(sizes) not in [1, maxinputlen] or len(reses) not in [1, maxinputlen] or len(wreses) not in [1,maxinputlen]:
+        raise RuntimeError(" \
+        For size, res and wres you must pass either the same number of values as the max or a single value.\n \
+        For example:\n \
+        ALLOWED     -> sizes=175,180,190, res=0.5, wres=0.5\n \
+                    -> sizes=175,180,190, res=0.5, wres=0.5,0.6,0.7\n \
+        NOT ALLOWED -> sizes=175,180,190, res=0.5, wres=0.5,0.6 \
+        ")
+    if len(sizes) != maxinputlen: # You'd think there must be a good way to do this with list comprehension.
+        sizes = sizes * maxinputlen
+    if len(reses) != maxinputlen:
+        reses = reses * maxinputlen
+    if len(wreses) != maxinputlen:
+        wreses = wreses * maxinputlen
     all_grid_params=[]
-    for i in range(len(sizes)):
-        all_grid_params.append({'size':sizes[i], 'res':reses[i], 'wres':wreses[i]})
+    while len(sizes) > 0:
+        all_grid_params.append({'size':sizes.pop(), 'res':reses.pop(), 'wres':wreses.pop()})
+
 
     ## Begin doing stuff
     transmitter_coords = known_transmitters.parse_args(args)
@@ -76,6 +91,7 @@ def main(args):
         h5f.create_dataset('wres', (len(all_grid_params),))
         h5f.create_dataset('res', (len(all_grid_params),))
         h5f.create_dataset('size', (len(all_grid_params),))
+        h5f.create_dataset('extent', (len(all_grid_params),4))
         h5f.create_dataset('elevation', (len(all_grid_params),))
         h5f.create_dataset('azimuth', (len(all_grid_params),))
         h5f.create_dataset('height', (len(all_grid_params),))
@@ -168,11 +184,8 @@ def main(args):
             np.save('gridded-v-size-{}-res-{}-wres-{}.npy'.format(grid_params['size'],grid_params['res'], grid_params['wres']), v)
             np.save('gridded-vis-size-{}-res-{}-wres-{}.npy'.format(grid_params['size'],grid_params['res'], grid_params['wres']), gridded_image.uv)
 
-        save_pkl_gridded = args.pkl_gridded and k in args.pkl_gridded
-        if args.all_sky==True or save_pkl_gridded==True:
-            l,m,img,extent=get_gimg_max(gridded_image, return_img=True)
-        else:
-            l,m=get_gimg_max(gridded_image)
+
+        l,m,img,extent=get_gimg_max(gridded_image, return_img=True)
 
         # Compute other values of interest
         elev, az = lm_to_ea(l, m)
@@ -183,6 +196,8 @@ def main(args):
         h5f['wres'][k] = grid_params['wres']
         h5f['res'][k] = grid_params['res']
         h5f['size'][k] = grid_params['size']
+
+        h5f['extent'][k] = extent
 
         h5f['elevation'][k] = elev
         h5f['azimuth'][k] = az
@@ -201,7 +216,7 @@ def main(args):
                 grid_params['size'],grid_params['res'], grid_params['wres']))
             plt.cla()
 
-
+        save_pkl_gridded = args.pkl_gridded and k in args.pkl_gridded
         if save_pkl_gridded:
             quickDict={'image':img, 'extent':extent}
             with open('gridded_size_{}_res_{}_wres_{}.pkl'.format(
@@ -218,7 +233,7 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-            description="compute all-sky images and fit a model to them",
+            description="simulate data then image with varying sizes/reses/wreses",
             formatter_class=argparse.ArgumentDefaultsHelpFormatter,
             fromfile_prefix_chars='@'
             )
