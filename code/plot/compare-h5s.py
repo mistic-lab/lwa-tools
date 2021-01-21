@@ -11,11 +11,12 @@ def main(args):
 
     f1=h5py.File(args.file1, 'r')
 
-    l1  = f1['l_est']
-    m1  = f1['m_est']
-    el1 = f1['elevation']
-    az1 = f1['azimuth']
-    h1  = f1['height']
+    # need to index the HDF5 group to get a numpy array out of it
+    l1  = f1['l_est'][:]
+    m1  = f1['m_est'][:]
+    el1 = f1['elevation'][:]
+    az1 = f1['azimuth'][:]
+    h1  = f1['height'][:]
     fig, ax = plt.subplots(5,1)
 
     ax[0].set_title(r'$l$')
@@ -35,13 +36,13 @@ def main(args):
 
     if args.file2 is not None:
         if args.label2 is None:
-             raise RuntimeError("Need a label '-l2' for file2".)
+             raise RuntimeError("Need a label '-l2' for file2")
         f2=h5py.File(args.file2, 'r')
-        l2  = f2['l_est']
-        m2  = f2['m_est']
-        el2 = f2['elevation']
-        az2 = f2['azimuth']
-        h2  = f2['height']
+        l2  = f2['l_est'][:]
+        m2  = f2['m_est'][:]
+        el2 = f2['elevation'][:]
+        az2 = f2['azimuth'][:]
+        h2  = f2['height'][:]
 
         ax[0].plot(l2, 'k', label=args.label2)
         ax[1].plot(m2, 'k')
@@ -51,13 +52,13 @@ def main(args):
 
     if args.file3 is not None:
         if args.label3 is None:
-             raise RuntimeError("Need a label '-l3' for file3".)
+             raise RuntimeError("Need a label '-l3' for file3")
         f3=h5py.File(args.file3, 'r')
-        l3  = f3['l_est']
-        m3  = f3['m_est']
-        el3 = f3['elevation']
-        az3 = f3['azimuth']
-        h3  = f3['height']
+        l3  = f3['l_est'][:]
+        m3  = f3['m_est'][:]
+        el3 = f3['elevation'][:]
+        az3 = f3['azimuth'][:]
+        h3  = f3['height'][:]
 
         ax[0].plot(l3, 'b', label=args.label2)
         ax[1].plot(m3, 'b')
