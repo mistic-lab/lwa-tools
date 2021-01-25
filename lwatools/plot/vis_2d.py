@@ -2,27 +2,10 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-from ../generate_visibilities import compute_visibilities, select_antennas
-from ../known_transmitters import get_transmitter_coords
+from lwatools.vis_modeling.generate_visibilities import compute_visibilities, select_antennas
+from lwatools.utils.known_transmitters import get_transmitter_coords
 from lsl.common import stations
 from lsl.reader.ldp import LWASVDataFile
-
-##############################
-# Turn these into parameters #
-##############################
-
-output_dir = "../../model_fitting"
-
-#tbn_filename = "../../data/058846_00123426_s0020.tbn"
-#target_freq = 5351500
-#transmitter_coords = get_transmitter_coords('SFe')
-
-tbn_filename = "../../data/058628_001748318.tbn"
-target_freq = 10e6
-transmitter_coords = get_transmitter_coords('WWV')
-
-station = stations.lwasv
-
 
 def get_vis_indices(id_pairs):
     indices = []
@@ -67,10 +50,3 @@ def plot_projected(baseline_pairs, visibilities, azimuth, output_dir='.'):
     bl = project_baselines(baseline_pairs, azimuth)
 
     plot_vis_2d(bl, visibilities, output_dir)
-
-if __name__ == "__main__":
-    azimuth = station.getPointingAndDistance(transmitter_coords + [0])[0]
-    tbn_file = LWASVDataFile(tbn_filename)
-    ants, n_baselines = select_antennas(stations.lwasv.antennas, use_pol=0)
-    baseline_pairs, visibilities = compute_visibilities(tbn_file, ants, target_freq)
-    plot_projected(baseline_pairs, visibilities, azimuth, output_dir)
