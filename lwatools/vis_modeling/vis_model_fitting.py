@@ -35,7 +35,7 @@ def ls_cost(params, u, v, vis, resid=point_residual_abs):
     return np.dot(r,r)
 
 
-def fit_model_to_vis(bl, freqs, vis, target_bin, residual_function, l_init, m_init,
+def fit_model_to_vis(bl, freqs, vis, tx_freq, residual_function, l_init, m_init,
         opt_method='lm', export_npy=False, param_guess_av_length=10):
     '''
     Fits a point source (or equivalently a gaussian) model to the visibilities in vis.
@@ -51,6 +51,10 @@ def fit_model_to_vis(bl, freqs, vis, target_bin, residual_function, l_init, m_in
 
     # monochromatic for now
     # TODO: make it not monochromatic
+
+    # we only want the bin nearest to our frequency
+    target_bin = np.argmin([abs(tx_freq - f) for f in freqs])
+
     vis = vis[:, target_bin]
     freqs = freqs[target_bin]
 
@@ -61,7 +65,7 @@ def fit_model_to_vis(bl, freqs, vis, target_bin, residual_function, l_init, m_in
     w = bl2d[:, 2]
 
     # convert the baselines to wavelenths -- great job jeff
-    wavelength = 3e8/args.tx_freq
+    wavelength = 3e8/tx_freq
 
     u = u/wavelength
     v = v/wavelength
@@ -107,7 +111,7 @@ def main(args):
     _, _, distance = station.get_pointing_and_distance(transmitter_coords + [0])
 
     if args.hdf5_file:
-        h5f = setup_results_h5(args.hdf5_file, tbnf, args.transmitter, args.tx_freq, 
+        h5f = build_output_file(args.hdf5_file, tbnf, args.transmitter, args.tx_freq, 
                 valid_ants, n_baselines, args.fft_len, args.use_pfb, args.use_pol, 
                 args.integration_length, opt_method, residual_function.__name__)
     else:
@@ -125,8 +129,6 @@ def main(args):
     k = 0
     for bl, freqs, vis in compute_visibilities_gen(tbnf, valid_ants, integration_length=args.integration_length, fft_length=args.fft_len, use_pol=args.use_pol, use_pfb=args.use_pfb):
 
-        # we only want the bin nearest to our frequency
-        target_bin = np.argmin([abs(args.tx_freq - f) for f in freqs])
 
         # start the optimization at the mean point of the 10 most recent fits
         l_init = l_est[-param_guess_av_length:].mean()
@@ -134,7 +136,7 @@ def main(args):
         
 
         # do the model fitting to get parameter estimates
-        l_out, m_out, cost = fit_model_to_vis(bl, freqs, vis, target_bin,
+        l_out, m_out, cost = fit_model_to_vis(bl, freqs, vis, args.tx_freq,
                 residual_function, l_init, m_init, export_npy=args.export_npy)
 
         # see if we should skip including this in future starting parameter estimates
