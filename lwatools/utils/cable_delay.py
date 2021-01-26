@@ -3,7 +3,7 @@
 import argparse
 import numpy as np
 from lsl.common import stations
-import load_lwa_station
+from lwatools.utils import load_lwa_station
 
 def get_cable_delay(station, standid, pol, fc, verbose=False, fs=None):
     ants = station.antennas

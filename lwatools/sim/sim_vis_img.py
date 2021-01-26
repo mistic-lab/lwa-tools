@@ -17,14 +17,12 @@ import pickle
 
 import matplotlib.pyplot as plt
 
-from visibility_models import point_source_visibility_model_uv
-from imaging_utils import lm_to_ea, flatmirror_height, get_gimg_max
-from generate_visibilities import compute_visibilities_gen, select_antennas
-import known_transmitters
+from lwatools.vis_modeling.visibility_models import point_source_visibility_model_uv
+from lwatools.imaging.imaging_utils import lm_to_ea, flatmirror_height, get_gimg_max
+from lwatools.vis_modeling.generate_visibilities import compute_visibilities_gen, select_antennas
+from lwatools.utils import known_transmitters
 
 station=stations.lwasv
-
-
 
 def main(args):
 
@@ -191,17 +189,18 @@ def main(args):
         elev, az = lm_to_ea(l, m)
         height = flatmirror_height(elev, distance)
 
-        h5f['l_est'][k] = l
-        h5f['m_est'][k] = m
-        h5f['wres'][k] = grid_params['wres']
-        h5f['res'][k] = grid_params['res']
-        h5f['size'][k] = grid_params['size']
+        if args.export_h5:
+            h5f['l_est'][k] = l
+            h5f['m_est'][k] = m
+            h5f['wres'][k] = grid_params['wres']
+            h5f['res'][k] = grid_params['res']
+            h5f['size'][k] = grid_params['size']
 
-        h5f['extent'][k] = extent
+            h5f['extent'][k] = extent
 
-        h5f['elevation'][k] = elev
-        h5f['azimuth'][k] = az
-        h5f['height'][k] = height
+            h5f['elevation'][k] = elev
+            h5f['azimuth'][k] = az
+            h5f['height'][k] = height
 
         if args.all_sky:
             ax.imshow(img, extent=extent, origin='lower', interpolation='nearest')

@@ -2,27 +2,8 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-from ../generate_visibilities import compute_visibilities, select_antennas
-from ../known_transmitters import get_transmitter_coords
-from lsl.common import stations
-from lsl.reader.ldp import LWASVDataFile
-
-##############################
-# Turn these into parameters #
-##############################
-
-output_dir = "../../model_fitting"
-
-#tbn_filename = "../../data/058846_00123426_s0020.tbn"
-#target_freq = 5351500
-#transmitter_coords = get_transmitter_coords('SFe')
-
-tbn_filename = "../../data/058628_001748318.tbn"
-target_freq = 10e6
-transmitter_coords = get_transmitter_coords('WWV')
-
-station = stations.lwasv
-
+import plotly.graph_objects as go
+from lwatools.vis_modeling.visibility_models import point_source_visibility_model_uv
 
 def get_vis_indices(id_pairs):
     indices = []
@@ -32,7 +13,26 @@ def get_vis_indices(id_pairs):
 
     return indices
 
-        
+def vis_phase_scatter_3d(u, v, vis, l=None, m=None, model=point_source_visibility_model_uv):
+    '''
+    Saves a 3D scatter plot of visibilites. Pass l,m to add a model to the plot as well.
+    '''
+    data = []
+    data.append(go.Scatter3d(x=u, y=v, z=np.angle(vis), mode='markers', marker=dict(size=1, color='red')))
+
+    if l and m:
+        data.append(go.Scatter3d(x=u, y=v, z=np.angle(point_source_visibility_model_uv(u, v, l, m)), mode='markers', marker=dict(size=1, color='black')))
+
+    fig = go.Figure(data=data)
+
+    fig.update_layout(scene=dict(
+        xaxis_title='u',
+        yaxis_title='v',
+        zaxis_title='phase'),
+        title="Integration {}".format(k))
+
+    fig.write_html("{}_scatter_int_{}.html".format(args.hdf5_file.split('/')[-1].split('.')[0], k))
+    
 
 def plot_vis_2d(bl_array, visibilities, output_dir='.'):
     plt.close('all')
@@ -67,10 +67,3 @@ def plot_projected(baseline_pairs, visibilities, azimuth, output_dir='.'):
     bl = project_baselines(baseline_pairs, azimuth)
 
     plot_vis_2d(bl, visibilities, output_dir)
-
-if __name__ == "__main__":
-    azimuth = station.getPointingAndDistance(transmitter_coords + [0])[0]
-    tbn_file = LWASVDataFile(tbn_filename)
-    ants, n_baselines = select_antennas(stations.lwasv.antennas, use_pol=0)
-    baseline_pairs, visibilities = compute_visibilities(tbn_file, ants, target_freq)
-    plot_projected(baseline_pairs, visibilities, azimuth, output_dir)

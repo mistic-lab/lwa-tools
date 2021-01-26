@@ -9,24 +9,13 @@ import plotly.graph_objects as go
 from lsl.common import stations
 from lsl.reader.ldp import LWASVDataFile
 
-from imaging_utils import lm_to_ea, flatmirror_height
-from generate_visibilities import compute_visibilities_gen, select_antennas
-import known_transmitters
-from visibility_models import point_residual_abs, point_residual_cplx, point_source_visibility_model_uvw
+from lwatools.file_tools.outputs import build_output_file
+from lwatools.imaging.imaging_utils import lm_to_ea, flatmirror_height
+from lwatools.vis_modeling.generate_visibilities import compute_visibilities_gen, select_antennas
+from lwatools.utils import known_transmitters
+from lwatools.vis_modeling.visibility_models import point_residual_abs, point_residual_cplx, point_source_visibility_model_uvw
+from lwatools.plot.vis import vis_phase_scatter_3d
 
-#tbn_filename = "../../data/058846_00123426_s0020.tbn"
-#target_freq = 5351500
-#transmitter_coords = get_transmitter_coords('SFe')
-#l_guess = 0.0035 # from a manual fit to the first integration
-#m_guess = 0.007
-
-#tbn_filename = "../../data/058628_001748318.tbn"
-#target_freq = 10e6
-#transmitter_coords = get_transmitter_coords('WWV')
-#l_guess = 0.008 # from a manual fit to the first integration
-#m_guess = 0.031
-
-# to be made into args:
 residual_function = point_residual_abs
 opt_method = 'lm'
 
@@ -46,59 +35,81 @@ def ls_cost(params, u, v, vis, resid=point_residual_abs):
     return np.dot(r,r)
 
 
+def fit_model_to_vis(bl, freqs, vis, target_bin, residual_function, l_init, m_init,
+        opt_method='lm', export_npy=False, param_guess_av_length=10):
+    '''
+    Fits a point source (or equivalently a gaussian) model to the visibilities in vis.
+
+    It's monochromatic (single-frequency) for now.
+
+    l_est, m_est should be arrays of previous l,m values, the mean of which is
+    used as an optimization starting point.
+
+    returns l, m, cost
+    ( the optimized l,m parameter values and the cost function after optimization )
+    '''
+
+    # monochromatic for now
+    # TODO: make it not monochromatic
+    vis = vis[:, target_bin]
+    freqs = freqs[target_bin]
+
+    # extract the baseline measurements from the baseline object pairs
+    bl2d = np.array([np.array([b[0].stand.x - b[1].stand.x, b[0].stand.y - b[1].stand.y, b[0].stand.z-b[1].stand.z]) for b in bl])
+    u = bl2d[:, 0]
+    v = bl2d[:, 1]
+    w = bl2d[:, 2]
+
+    # convert the baselines to wavelenths -- great job jeff
+    wavelength = 3e8/args.tx_freq
+
+    u = u/wavelength
+    v = v/wavelength
+    w = w/wavelength
+
+    # we're only fitting the phase, so normalize the visibilities
+    vis = vis/np.abs(vis)
+
+    if export_npy:
+        print("Exporting u, v, w, and visibility")
+        np.save('u{}.npy'.format(k), u)
+        np.save('v{}.npy'.format(k), v)
+        np.save('w{}.npy'.format(k), w)
+        np.save('vis{}.npy'.format(k), vis)
+
+
+    print("Optimizing")
+    opt_result = least_squares(
+            residual_function,
+            [l_init, m_init], 
+            args=(u, v, w, vis),
+            method=opt_method
+            )
+
+    print("Optimization result: {}".format(opt_result))
+    print("Start point: {}".format((l_init, m_init)))
+    l_out, m_out = opt_result['x']
+    cost = opt_result['cost']
+
+    return l_out, m_out, cost
+
+
 def main(args):
-    transmitter_coords = known_transmitters.parse_args(args)
-    if transmitter_coords:
-        bearing, _, distance = station.get_pointing_and_distance(transmitter_coords + [0])
-    else:
-        print("Please specify a transmitter location")
-        return
 
     print("Opening TBN file ({})".format(args.tbn_filename))
     tbnf = LWASVDataFile(args.tbn_filename, ignore_timetag_errors=True)
     
     antennas = station.antennas
 
-    # valid_ants, n_baselines = select_antennas(antennas, use_pol)
     valid_ants, n_baselines = select_antennas(antennas, args.use_pol, exclude=[256]) # to exclude outrigger
 
+    transmitter_coords = known_transmitters.parse_args(args)
+    _, _, distance = station.get_pointing_and_distance(transmitter_coords + [0])
+
     if args.hdf5_file:
-        print("Writing output to {}".format(args.hdf5_file))
-        h5f = h5py.File(args.hdf5_file, 'w')
-
-        # write metadata to attributes
-        ats = h5f.attrs
-        ats['tbn_filename'] = args.tbn_filename
-        ats['transmitter'] = args.transmitter
-        ats['tx_bearing'] = bearing
-        ats['tx_distance'] = distance
-        ats['tx_freq'] = args.tx_freq
-        ats['sample_rate'] = tbnf.get_info('sample_rate')
-        ats['start_time'] = str(tbnf.get_info('start_time').utc_datetime)
-        ats['valid_ants'] = [a.id for a in valid_ants]
-        ats['n_baselines'] = n_baselines
-        ats['center_freq'] = tbnf.get_info('freq1')
-        ats['fft_len'] = args.fft_len
-        ats['use_pfb'] = args.use_pfb
-        ats['use_pol'] = args.use_pol
-        ats['int_length'] = args.integration_length
-        #TODO add to argparse maybe
-        ats['opt_method'] = opt_method
-        ats['res_function'] = residual_function.__name__
-
-        n_samples = tbnf.get_info('nframe') / tbnf.get_info('nantenna')
-        samples_per_integration = int(args.integration_length * tbnf.get_info('sample_rate') / 512)
-        n_integrations = n_samples / samples_per_integration
-        h5f.create_dataset('l_start', (n_integrations,))
-        h5f.create_dataset('m_start', (n_integrations,))
-        h5f.create_dataset('l_est', (n_integrations,))
-        h5f.create_dataset('m_est', (n_integrations,))
-        h5f.create_dataset('elevation', (n_integrations,))
-        h5f.create_dataset('azimuth', (n_integrations,))
-        h5f.create_dataset('height', (n_integrations,))
-        h5f.create_dataset('cost', (n_integrations,))
-        h5f.create_dataset('skipped', (n_integrations,), dtype='bool')
-
+        h5f = setup_results_h5(args.hdf5_file, tbnf, args.transmitter, args.tx_freq, 
+                valid_ants, n_baselines, args.fft_len, args.use_pfb, args.use_pol, 
+                args.integration_length, opt_method, residual_function.__name__)
     else:
         print("No output file specified.")
         return
@@ -116,52 +127,18 @@ def main(args):
 
         # we only want the bin nearest to our frequency
         target_bin = np.argmin([abs(args.tx_freq - f) for f in freqs])
-        
-        vis = vis[:, target_bin]
-        freqs = freqs[target_bin]
-        
-        # extract the baseline measurements from the baseline object pairs
-        bl2d = np.array([np.array([b[0].stand.x - b[1].stand.x, b[0].stand.y - b[1].stand.y, b[0].stand.z-b[1].stand.z]) for b in bl])
-        u = bl2d[:, 0]
-        v = bl2d[:, 1]
-        w = bl2d[:, 2]
-
-        # convert the baselines to wavelenths -- great job jeff
-        wavelength = 3e8/args.tx_freq
-
-        u = u/wavelength
-        v = v/wavelength
-        w = w/wavelength
-
-        # we're only fitting the phase, so normalize the visibilities
-        vis = vis/np.abs(vis)
-
-        if args.export_npy:
-            print("Exporting u, v, w, and visibility")
-            np.save('u{}.npy'.format(k), u)
-            np.save('v{}.npy'.format(k), v)
-            np.save('w{}.npy'.format(k), w)
-            np.save('vis{}.npy'.format(k), vis)
 
         # start the optimization at the mean point of the 10 most recent fits
         l_init = l_est[-param_guess_av_length:].mean()
         m_init = m_est[-param_guess_av_length:].mean()
+        
 
-        print("Optimizing")
-        opt_result = least_squares(
-                residual_function,
-                [l_init, m_init], 
-                args=(u, v, w, vis),
-                method=opt_method
-                )
+        # do the model fitting to get parameter estimates
+        l_out, m_out, cost = fit_model_to_vis(bl, freqs, vis, target_bin,
+                residual_function, l_init, m_init, export_npy=args.export_npy)
 
-        print("Optimization result: {}".format(opt_result))
-        print("Start point: {}".format((l_init, m_init)))
-        l_out, m_out = opt_result['x']
-        cost = opt_result['cost']
-
+        # see if we should skip including this in future starting parameter estimates
         skip = False
-
         if args.exclude and k in args.exclude:
             print("Not including in parameter estimates by request")
             skip = True
@@ -176,6 +153,7 @@ def main(args):
             m_est = np.append(m_est, m_out)
             #costs = np.append(costs, cost)
 
+        # compute source sky location from parameter values
         elev, az = lm_to_ea(l_out, m_out)
 
         # TODO: tilted mirror model?
@@ -195,24 +173,11 @@ def main(args):
         save_scatter = (args.scatter and k in args.scatter) or (args.scatter_every and k % args.scatter_every == 0)# or (args.scatter_bad_fits and skip)
         if save_scatter:
             print("Plotting model and data scatter")
-            data = [
-                go.Scatter3d(x=u, y=v, z=np.angle(vis), mode='markers', marker=dict(size=1, color='red')),
-                go.Scatter3d(x=u, y=v, z=np.angle(point_source_visibility_model_uvw(u, v, w, l_out, m_out)), mode='markers', marker=dict(size=1, color='black'))
-            ]
-
-            fig = go.Figure(data=data)
-
-            fig.update_layout(scene=dict(
-                xaxis_title='u',
-                yaxis_title='v',
-                zaxis_title='phase'),
-                title="Integration {}".format(k))
-
-            fig.write_html("{}_scatter_int_{}.html".format(args.hdf5_file.split('/')[-1].split('.')[0], k))
+            vis_phase_scatter_3d(u, v, vis, l_out, m_out)
 
         k += 1
         print("\n\n")
-
+  
     h5f.close()
     tbnf.close()
 

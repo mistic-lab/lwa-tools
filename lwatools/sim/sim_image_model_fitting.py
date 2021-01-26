@@ -17,10 +17,9 @@ import pickle
 
 import matplotlib.pyplot as plt
 
-from visibility_models import point_source_visibility_model_uv
-from imaging_utils import lm_to_ea, flatmirror_height, get_gimg_max
-from generate_visibilities import compute_visibilities_gen, select_antennas
-import known_transmitters
+from lwatools.vis_modeling.visibility_models import point_source_visibility_model_uv
+from lwatools.imaging.imaging_utils import lm_to_ea, flatmirror_height, get_gimg_max
+from lwatools.vis_modeling.generate_visibilities import compute_visibilities_gen, select_antennas
 
 station=stations.lwasv
 
@@ -168,7 +167,7 @@ def main(args):
             ax.set_xlabel('l')
             ax.set_ylabel('m')
             ax.plot(l,m,marker='o', color='k', label='Image Max.')
-            ax.plot(args.l_model,args.m_model,marker='x', color='r', label='Model (input)')
+            ax.plot(l_in,m_in,marker='x', color='r', label='Model (input)')
             plt.legend(loc='lower right')
             plt.savefig('allsky{}.png'.format(k))
             plt.cla()
@@ -205,7 +204,5 @@ if __name__ == "__main__":
             help='export gridded all sky data for these integrations')
     parser.add_argument('--export-npy', action='store_true',
             help="export npy files of u, v, and visibility for each iteration")
-            
-    known_transmitters.add_args(parser)
     args = parser.parse_args()
     main(args)

@@ -3,28 +3,78 @@
 import argparse
 import numpy as np
 import h5py
+import pickle
 from datetime import datetime
+import matplotlib.pyplot as plt
+
 from lsl.common import stations
 from lsl.reader.ldp import LWASVDataFile
 from lsl.imaging.data import VisibilityDataSet, PolarizationDataSet
 from lsl.imaging.analysis import find_point_sources
 from lsl.imaging.utils import build_gridded_image, plot_gridded_image
 from lsl.sim import vis as simVis
-from visibility_models import point_source_visibility_model_uv
-import pickle
-
 # from lsl.writer import fitsidi
 # from lsl.correlator import fx as fxc
-import matplotlib.pyplot as plt
 
-from imaging_utils import lm_to_ea, flatmirror_height, get_gimg_max
-from generate_visibilities import compute_visibilities_gen, select_antennas
-import known_transmitters
+from lwatools.file_tools.outputs import build_output_file
+from lwatools.vis_modeling.visibility_models import point_source_visibility_model_uv
+from lwatools.imaging.imaging_utils import lm_to_ea, flatmirror_height, get_gimg_max
+from lwatools.vis_modeling.generate_visibilities import compute_visibilities_gen, select_antennas
+from lwatools.utils import known_transmitters
 
-station=stations.lwasv
+def grid_visibilities(bl, freqs, vis, target_bin, jd, valid_ants, station, size=80, res=0.5, wres=0.10):
+    '''
+    Resamples the baseline-sampled visibilities on to a regular grid. 
 
+    arguments:
+    bl = pairs of antenna objects representing baselines (list)
+    freqs = frequency channels for which we have correlations (list)
+    vis = visibility samples corresponding to the baselines (numpy array)
+    target_bin = the bin we want to use (number)
+    jd = the date - shouldn't actually be important, but VisibilityDataSet needs it (number)
+    valid_ants = which antennas we actually want to use (list)
+
+    returns:
+    gridded_image
+    '''
+    # In order to do the gridding, we need to build a VisibilityDataSet using
+    # lsl.imaging.data.VisibilityDataSet. We have to build a bunch of stuff to
+    # pass to its constructor.
+
+    # Build antenna array
+    antenna_array = simVis.build_sim_array(station, valid_ants, freqs/1e9, jd=jd, force_flat=True)
+
+    # build uvw
+    uvw_m = np.array([np.array([b[0].stand.x - b[1].stand.x, b[0].stand.y - b[1].stand.y, b[0].stand.z - b[1].stand.z]) for b in bl])
+
+    uvw = np.empty((len(bl), 3, len(freqs)))
+    for i, f in enumerate(freqs):
+        # wavelength = 3e8/f # TODO this should be fixed. What is currently happening is not true. Well it is, but only if you're looking for a specific transmitter frequency. Which I guess we are. I just mean it's not generalized.
+        wavelength = 3e8/args.tx_freq
+        uvw[:,:,i] = uvw_m/wavelength
+
+    dataSet = VisibilityDataSet(jd=jd, freq=freqs, baselines=bl, uvw=uvw, antennarray=antenna_array)
+    if args.use_pol == 0:
+        pol_string = 'XX'
+        p=0 # this is related to the enumerate in lsl.imaging.utils.CorrelatedIDI().get_data_set() (for when there are multiple pols in a single dataset)
+    else:
+        raise RuntimeError("Only pol. XX supported right now.")
+    polDataSet = PolarizationDataSet(pol_string, data=vis)
+    dataSet.append(polDataSet)
+
+
+    # Use lsl.imaging.utils.build_gridded_image (takes a VisibilityDataSet)
+    gridded_image = build_gridded_image(dataSet, pol=pol_string, chan=target_bin, size=80, res=0.5) #default res/size
+    # gridded_image = build_gridded_image(dataSet, pol=pol_string, chan=target_bin, size=100, res=0.3) #what I think it had ought to be if size=N and res=du
+    # gridded_image = build_gridded_image(dataSet, pol=pol_string, chan=target_bin, size=3, res=0.01) #what I think it had ought to be if the docstring is true
+    # gridded_image = build_gridded_image(dataSet, pol=pol_string, chan=target_bin, size=10, res=0.05) #what I think it had ought to be if the docstring is true
+    # gridded_image = build_gridded_image(dataSet, pol=pol_string, chan=target_bin, size=20, res=0.5) #from sim
+
+    return gridded_image
 
 def main(args):
+    station = stations.lwasv
+
     transmitter_coords = known_transmitters.parse_args(args)
     if transmitter_coords:
         bearing, _, distance = station.get_pointing_and_distance(transmitter_coords + [0])
@@ -41,44 +91,17 @@ def main(args):
     valid_ants, n_baselines = select_antennas(antennas, args.use_pol, exclude=[256]) # to exclude outrigger
 
     if args.hdf5_file:
-        print("Writing output to {}".format(args.hdf5_file))
-        h5f = h5py.File(args.hdf5_file, 'w')
-
-        # write metadata to attributes
-        ats = h5f.attrs
-        ats['tbn_filename'] = args.tbn_filename
-        ats['transmitter'] = args.transmitter
-        ats['tx_bearing'] = bearing
-        ats['tx_distance'] = distance
-        ats['tx_freq'] = args.tx_freq
-        ats['sample_rate'] = tbnf.get_info('sample_rate')
-        ats['start_time'] = str(tbnf.get_info('start_time').utc_datetime)
-        ats['valid_ants'] = [a.id for a in valid_ants]
-        ats['n_baselines'] = n_baselines
-        ats['center_freq'] = tbnf.get_info('freq1')
-        ats['fft_len'] = args.fft_len
-        ats['use_pfb'] = args.use_pfb
-        ats['use_pol'] = args.use_pol
-        ats['int_length'] = args.integration_length
-
-        n_samples = tbnf.get_info('nframe') / tbnf.get_info('nantenna')
-        samples_per_integration = int(args.integration_length * tbnf.get_info('sample_rate') / 512)
-        n_integrations = n_samples / samples_per_integration
-        h5f.create_dataset('l_est', (n_integrations,))
-        h5f.create_dataset('m_est', (n_integrations,))
-        h5f.create_dataset('elevation', (n_integrations,))
-        h5f.create_dataset('azimuth', (n_integrations,))
-        h5f.create_dataset('height', (n_integrations,))
-
-    else:
-        print("No output file specified.")
-        return
+        h5f = build_output_file(args.hdf5_file, tbnf, args.transmitter, args.tx_freq, 
+                valid_ants, n_baselines, args.fft_len, args.use_pfb, args.use_pol, 
+                args.integration_length, "imaging", "")
 
     k = 0
 
     save_all_sky = (args.all_sky and k in args.all_sky) or (args.all_sky_every and k % args.all_sky_every == 0)# or (args.scatter_bad_fits and skip)
+
     if save_all_sky:
         fig, ax = plt.subplots()
+
     for bl, freqs, vis in compute_visibilities_gen(tbnf, valid_ants, integration_length=args.integration_length, fft_length=args.fft_len, use_pol=args.use_pol, use_pfb=args.use_pfb):
 
         # Normalize amplitudes since we want it based on phase
@@ -87,38 +110,10 @@ def main(args):
         # we only want the bin nearest to our frequency
         target_bin = np.argmin([abs(args.tx_freq - f) for f in freqs])
 
-        # Build a VisibilityDataSet with this data (lsl.imaging.data.VisibilityDataSet)
-        # use_pol is 0 which fxc.pol_to_pols would return. pol_to_pols takes a string 'X' or 'XX' and outputs a 0.
         jd = tbnf.get_info('start_time').jd
 
-        # Build antenna array
-        antenna_array = simVis.build_sim_array(station, valid_ants, freqs/1e9, jd=jd, force_flat=True)
+        gridded_image = grid_visibilities(bl, freqs, vis, target_bin, jd, valid_ants, station)
 
-        # build uvw
-        uvw_m = np.array([np.array([b[0].stand.x - b[1].stand.x, b[0].stand.y - b[1].stand.y, b[0].stand.z - b[1].stand.z]) for b in bl])
-
-        uvw = np.empty((len(bl), 3, len(freqs)))
-        for i, f in enumerate(freqs):
-            # wavelength = 3e8/f # TODO this should be fixed. What is currently happening is not true. Well it is, but only if you're looking for a specific transmitter frequency. Which I guess we are. I just mean it's not generalized.
-            wavelength = 3e8/args.tx_freq
-            uvw[:,:,i] = uvw_m/wavelength
-
-        dataSet = VisibilityDataSet(jd=jd, freq=freqs, baselines=bl, uvw=uvw, antennarray=antenna_array)
-        if args.use_pol == 0:
-            pol_string = 'XX'
-            p=0 # this is related to the enumerate in lsl.imaging.utils.CorrelatedIDI().get_data_set() (for when there are multiple pols in a single dataset)
-        else:
-            raise RuntimeError("Only pol. XX supported right now.")
-        polDataSet = PolarizationDataSet(pol_string, data=vis)
-        dataSet.append(polDataSet)
-
-
-        # Use lsl.imaging.utils.build_gridded_image (takes a VisibilityDataSet)
-        gridded_image = build_gridded_image(dataSet, pol=pol_string, chan=target_bin, size=80, res=0.5) #default res/size
-        # gridded_image = build_gridded_image(dataSet, pol=pol_string, chan=target_bin, size=100, res=0.3) #what I think it had ought to be if size=N and res=du
-        # gridded_image = build_gridded_image(dataSet, pol=pol_string, chan=target_bin, size=3, res=0.01) #what I think it had ought to be if the docstring is true
-        # gridded_image = build_gridded_image(dataSet, pol=pol_string, chan=target_bin, size=10, res=0.05) #what I think it had ought to be if the docstring is true
-        # gridded_image = build_gridded_image(dataSet, pol=pol_string, chan=target_bin, size=20, res=0.5) #from sim
 
         save_all_sky = (args.all_sky and k in args.all_sky) or (args.all_sky_every and k % args.all_sky_every == 0)
         save_pkl_gridded = (args.pkl_gridded and k in args.pkl_gridded) or (args.pkl_gridded_every and k % args.pkl_gridded_every == 0)
