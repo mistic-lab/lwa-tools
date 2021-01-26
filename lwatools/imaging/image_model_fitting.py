@@ -16,7 +16,7 @@ from lsl.sim import vis as simVis
 # from lsl.writer import fitsidi
 # from lsl.correlator import fx as fxc
 
-from lwatools.file_tools.results import setup_results_h5
+from lwatools.file_tools.outputs import build_output_file
 from lwatools.vis_modeling.visibility_models import point_source_visibility_model_uv
 from lwatools.imaging.imaging_utils import lm_to_ea, flatmirror_height, get_gimg_max
 from lwatools.vis_modeling.generate_visibilities import compute_visibilities_gen, select_antennas
@@ -91,7 +91,7 @@ def main(args):
     valid_ants, n_baselines = select_antennas(antennas, args.use_pol, exclude=[256]) # to exclude outrigger
 
     if args.hdf5_file:
-        h5f = setup_results_h5(args.hdf5_file, tbnf, args.transmitter, args.tx_freq, 
+        h5f = build_output_file(args.hdf5_file, tbnf, args.transmitter, args.tx_freq, 
                 valid_ants, n_baselines, args.fft_len, args.use_pfb, args.use_pol, 
                 args.integration_length, "imaging", "")
 
