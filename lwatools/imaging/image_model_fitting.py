@@ -27,15 +27,15 @@ def grid_visibilities(bl, freqs, vis, target_bin, jd, valid_ants, station, size=
     Resamples the baseline-sampled visibilities on to a regular grid. 
 
     arguments:
-    bl = pairs of antenna objects representing baselines
-    freqs = frequency channels for which we have correlations
-    vis = visibility samples corresponding to the baselines
-    target_bin = the bin we want to use
-    jd = the date (shouldn't actually be important, but VisibilityDataSet needs it)
-    valid_ants = which antennas we actually want to use
+    bl = pairs of antenna objects representing baselines (list)
+    freqs = frequency channels for which we have correlations (list)
+    vis = visibility samples corresponding to the baselines (numpy array)
+    target_bin = the bin we want to use (number)
+    jd = the date - shouldn't actually be important, but VisibilityDataSet needs it (number)
+    valid_ants = which antennas we actually want to use (list)
 
     returns:
-    gridded_image = 
+    gridded_image
     '''
     # In order to do the gridding, we need to build a VisibilityDataSet using
     # lsl.imaging.data.VisibilityDataSet. We have to build a bunch of stuff to
