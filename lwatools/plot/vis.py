@@ -13,15 +13,19 @@ def get_vis_indices(id_pairs):
 
     return indices
 
-def vis_phase_scatter_3d(u, v, vis, l=None, m=None, model=point_source_visibility_model_uv):
+def vis_phase_scatter_3d(u, v, vis, show=True, html_savename=None, title="", l=None, m=None, model=point_source_visibility_model_uv, cplx_map=np.angle):
     '''
     Saves a 3D scatter plot of visibilites. Pass l,m to add a model to the plot as well.
     '''
+    u = u.flatten()
+    v = v.flatten()
+    vis = vis.flatten()
+
     data = []
-    data.append(go.Scatter3d(x=u, y=v, z=np.angle(vis), mode='markers', marker=dict(size=1, color='red')))
+    data.append(go.Scatter3d(x=u, y=v, z=cplx_map(vis), mode='markers', marker=dict(size=1, color='red')))
 
     if l and m:
-        data.append(go.Scatter3d(x=u, y=v, z=np.angle(point_source_visibility_model_uv(u, v, l, m)), mode='markers', marker=dict(size=1, color='black')))
+        data.append(go.Scatter3d(x=u, y=v, z=cplx_map(point_source_visibility_model_uv(u, v, l, m)), mode='markers', marker=dict(size=1, color='black')))
 
     fig = go.Figure(data=data)
 
@@ -29,9 +33,15 @@ def vis_phase_scatter_3d(u, v, vis, l=None, m=None, model=point_source_visibilit
         xaxis_title='u',
         yaxis_title='v',
         zaxis_title='phase'),
-        title="Integration {}".format(k))
+        title=title)
 
-    fig.write_html("{}_scatter_int_{}.html".format(args.hdf5_file.split('/')[-1].split('.')[0], k))
+    if html_savename:
+        print(f"saving visibility phase scatter to {html_savename}")
+        fig.write_html(html_savename)
+
+    if show:
+        print("showing visibility scatter")
+        fig.show()
     
 
 def plot_vis_2d(bl_array, visibilities, output_dir='.'):
