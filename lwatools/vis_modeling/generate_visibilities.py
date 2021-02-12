@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 
 from lsl.correlator import fx as fxc
 from lsl.reader.ldp import LWASVDataFile
+from lsl.reader.errors import EOFError
 from lsl.common import stations
 from lsl.correlator import uvutils
 
@@ -142,7 +143,14 @@ def compute_visibilities_gen(tbn_file, ants, station=stations.lwasv, integration
     for i in range(0, n_integrations):
         print("| Integration {}/{}".format(i, n_integrations-1))
         # get one integration length of data
-        duration, start_time, data = tbn_file.read(integration_length)
+        try:
+            duration, start_time, data = tbn_file.read(integration_length)
+        except EOFError:
+            print("Reached the end of the TBN file.")
+            print("Looks like we calculated the frame numbers wrong. Oops.")
+            return
+            
+            
 
         #only use data from the valid antennas
         data = data[[a.digitizer - 1 for a in ants], :]
