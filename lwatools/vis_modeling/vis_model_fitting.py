@@ -57,7 +57,7 @@ def fit_model_to_vis(uvw, vis, residual_function, l_init, m_init,
     # TODO: make it not monochromatic
 
     # we're only fitting the phase, so normalize the visibilities
-    vis = vis/np.abs(vis)
+    #vis = vis/np.abs(vis)
 
     u = uvw[:, 0]
     v = uvw[:, 1]
