@@ -11,17 +11,19 @@
 import os
 import numpy as np
 import numpy.lib.format as fmt
-import urllib2
+from urllib.request import urlopen
 from datetime import datetime
 import h5py
 import math
+import pathlib
 
 from lsl.reader import tbn, errors
-from lsl.reader.ldp import LWASVDataFile
+from lsl.reader.ldp import LWASVDataFile, LWA1DataFile
 from lsl.common import stations
 
-import arrUtils
+from lwatools.utils import arrUtils
 
+__all__=['meta_to_txt', 'make_sample_tbn']
 
 def generate_multiple_ants(input_file, dp_stand_ids, polarization, chunk_length=2**20, max_length=-1, truncate=True):
     """Generate chunks of data from a list of antennas.
@@ -269,36 +271,45 @@ def extract_single_ant(input_file, dp_stand_id, polarization, max_length=-1):
     return output_data
 
 
-def meta_to_txt(filename):
+def meta_to_txt(filename, outdir='./', station='lwasv'):
     """Pulls metadata from TBN file and puts it into a txt file of the same name
 
     Parameters
     ----------
     filename : string
                 name of file to be read (may end in dat, tbn, or nothing)
+    outdir : string
+                name of output directory to save textfile in
+    station : string
+                one of 'lwasv' or 'lwa1' for now
     """
 
 
-    # print localFile
-    # simple_name = os.path.realpath(filename.split('/'))[-1]
-    # simple_name = simple_name.split('.')[0]
-    simple_name = filename
+    simple_name = filename.split('/')[-1]
+    simple_name = simple_name.split('.')[0]
 
-    print("{} TBN Size: {} kB".format(simple_name, os.path.getsize(simple_name)/1024))
+    if not outdir.endswith('/'):
+        outdir = outdir+'/'
+    if not pathlib.Path(outdir).exists():
+        os.mkdir(outdir)
 
-    # Check that the datatype is correct according to lsl
-    idfN = LWASVDataFile(filename)
-    print("{} is of type: {}".format(simple_name, type(idfN)))
+    print("{} TBN Size: {} kB".format(filename, os.path.getsize(filename)/1024))
+
+    if station=='lwasv':
+        idfN = LWASVDataFile(filename)
+        simple_name = simple_name+'-LWASV'
+    elif station=='lwa1':
+        idfN = LWA1DataFile(filename)
+        simple_name = simple_name+'-LWA1'
+    else:
+        raise NotImplementedError("I haven't implemented that type of station yet")
+    print("{} is of type: {}".format(filename, type(idfN)))
 
     # Poll the TBN file for its specifics
-    with open(simple_name + ".txt", 'w') as meta:
+    with open(outdir+simple_name + ".txt", 'w') as meta:
         meta.write('TBN Metadata:\n')
         for key, value in idfN.get_info().items():
-            if key is "start_time":
-                meta.write("Human start time: " + str(value.utc_datetime)+"\n")
             meta.write("  %s: %s\n" % (str(key), str(value)))
-
-
     idfN.close()
 
 def pull_meta(filename, key):
@@ -335,7 +346,7 @@ def make_sample_tbn(filename, num_frames=2000000):
                 number of frames to be kept (default: 2000000)
     """
 
-    # Make string for urllib2
+    # Make string for urllib
     localFile='file:///'+os.path.realpath(filename)
 
     # print localFile
@@ -344,16 +355,16 @@ def make_sample_tbn(filename, num_frames=2000000):
 
     # Pull from dat and make tbn file
     if not os.path.exists(simple_name+'.tbn'):
-        fh1 = urllib2.urlopen(localFile)
+        fh1 = urlopen(localFile)
         fh2 = open(simple_name+'.tbn', 'wb')
-        fh2.write(fh1.read(tbn.FrameSize*num_frames))
+        fh2.write(fh1.read(tbn.FRAME_SIZE*num_frames))
         fh1.close()
         fh2.close()
-    print("\n%s TBN Size: %.1f kB".format(simple_name, os.path.getsize(simple_name+'.tbn')/1024.))
+    print("\n{} TBN Size: {} kB".format(simple_name, os.path.getsize(simple_name+'.tbn')/1024.))
 
     # Check that the datatype is correct according to lsl
     idfN = LWASVDataFile(simple_name+'.tbn')
-    print("%s is of type: %s \n".format(simple_name, type(idfN)))
+    print("{} is of type: {} \n".format(simple_name, type(idfN)))
 
 
     idfN.close()
