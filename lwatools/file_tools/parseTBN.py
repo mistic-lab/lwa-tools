@@ -260,11 +260,14 @@ def extract_single_ant(input_file, dp_stand_id, polarization, max_length=-1):
 
     # while input_data.get_remaining_frame_count() > 0:
     while len(output_data) < max_length:
-        current_frame = input_data.read_frame()
+        try:
+            current_frame = input_data.read_frame()
+        except errors.EOFError:
+            break
 
         if current_frame.id == (dp_stand_id, polarization):
-            for i in range(len(current_frame.data.iq)):
-                output_data.append(current_frame.data.iq[i])
+            for i in range(len(current_frame.payload.data)):
+                output_data.append(current_frame.payload.data[i])
 
     output_data = np.array(output_data)
 
