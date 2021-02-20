@@ -67,7 +67,7 @@ def main(args):
             az3 = f3['azimuth'][:]
             h3  = f3['height'][:]
 
-            ax[0].plot(l3, 'b', label=args.label2)
+            ax[0].plot(l3, 'b', label=args.label3)
             ax[1].plot(m3, 'b')
             ax[2].plot(el3, 'b')
             ax[3].plot(az3, 'b')
