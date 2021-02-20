@@ -28,8 +28,11 @@ def add_args(parser):
     Adds command line arguments for specifying a transmitter and for printing
     the list of known transmitters.
     '''
-    parser.add_argument('-t', '--transmitter', nargs='+', metavar=('LAT or NAME', 'LONG'),
-                        help='transmitter coordinates in decimal degrees OR provide the name of a known transmitter')
+    parser.add_argument('-tl', '--transmitter-coords', type=float,
+            nargs=2, metavar=('TX_LAT', 'TX_LONG'),
+            help='transmitter coordinates in decimal degrees')
+    parser.add_argument('-tn', '--transmitter-name', type=str, 
+            help='name of a known transmitter')
     parser.add_argument('-k', '--known-transmitters', action='store_true',
                         help='list known transmitter names that can be passed with -t')
 
@@ -45,9 +48,9 @@ def parse_args(args):
             print(key + ": " + str(known_transmitter_locations[key]))
         exit()
 
-    if args.transmitter is not None and str(args.transmitter[0]) in known_transmitter_locations:
-        return known_transmitter_locations[str(args.transmitter[0])]
-
-    return None
-
-
+    if args.transmitter_name:
+        return known_transmitter_locations[args.transmitter_name]
+    elif args.transmitter_coords:
+        return args.transmitter_coords
+    else:
+        raise RuntimeError("No transmitter name or location provided.")

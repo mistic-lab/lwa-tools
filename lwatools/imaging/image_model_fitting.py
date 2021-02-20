@@ -18,7 +18,7 @@ from lsl.sim import vis as simVis
 
 from lwatools.file_tools.outputs import build_output_file
 from lwatools.vis_modeling.visibility_models import point_source_visibility_model_uv
-from lwatools.imaging.imaging_utils import lm_to_ea, flatmirror_height, get_gimg_max
+from lwatools.imaging.imaging_utils import lm_to_ea, flatmirror_height, tiltedmirror_height, get_gimg_max, get_gimg_center_of_mass
 from lwatools.vis_modeling.generate_visibilities import compute_visibilities_gen, select_antennas
 from lwatools.utils import known_transmitters
 
@@ -77,10 +77,12 @@ def main(args):
 
     transmitter_coords = known_transmitters.parse_args(args)
     if transmitter_coords:
-        bearing, _, distance = station.get_pointing_and_distance(transmitter_coords + [0])
+        tx_az, _, tx_dist = station.get_pointing_and_distance(transmitter_coords + [0])
     else:
         print("Please specify a transmitter location")
         return
+
+    print(args)
 
     print("Opening TBN file ({})".format(args.tbn_filename))
     tbnf = LWASVDataFile(args.tbn_filename, ignore_timetag_errors=True)
@@ -91,7 +93,7 @@ def main(args):
     valid_ants, n_baselines = select_antennas(antennas, args.use_pol, exclude=[256]) # to exclude outrigger
 
     if args.hdf5_file:
-        h5f = build_output_file(args.hdf5_file, tbnf, args.transmitter, args.tx_freq, 
+        h5f = build_output_file(args.hdf5_file, tbnf, transmitter_coords, args.tx_freq, 
                 valid_ants, n_baselines, args.fft_len, args.use_pfb, args.use_pol, 
                 args.integration_length, "imaging", "")
 
@@ -101,6 +103,13 @@ def main(args):
 
     if save_all_sky:
         fig, ax = plt.subplots()
+
+    if args.point_finding_alg == 'peak':
+        get_gimg = get_gimg_max
+    elif args.point_finding_alg == 'CoM':
+        get_gimg = get_gimg_center_of_mass
+    else:
+        raise NotImplementedError(f"unrecognized point finding algorithm: {args.point_finding_alg}")
 
     for bl, freqs, vis in compute_visibilities_gen(tbnf, valid_ants, integration_length=args.integration_length, fft_length=args.fft_len, use_pol=args.use_pol, use_pfb=args.use_pfb):
 
@@ -118,18 +127,24 @@ def main(args):
         save_all_sky = (args.all_sky and k in args.all_sky) or (args.all_sky_every and k % args.all_sky_every == 0)
         save_pkl_gridded = (args.pkl_gridded and k in args.pkl_gridded) or (args.pkl_gridded_every and k % args.pkl_gridded_every == 0)
         if save_all_sky==True or save_pkl_gridded==True:
-            l, m, img, extent = get_gimg_max(gridded_image, return_img=True)
+            l, m, img, extent = get_gimg(gridded_image, return_img=True)
         else:
-            l,m = get_gimg_max(gridded_image)
+            l,m = get_gimg(gridded_image)
 
         # Compute other values of interest
-        elev, az = lm_to_ea(l, m)
-        height = flatmirror_height(elev, distance)
+        src_elev, src_az = lm_to_ea(l, m)
+
+        if args.reflection_model == 'flat_fixed_dist':
+            height = flatmirror_height(src_elev, tx_dist)
+        elif args.reflection_model == 'tilted_fixed_dist':
+            height = tiltedmirror_height(src_elev, src_az, tx_az, tx_dist)
+        else:
+            raise NotImplementedError(f"unrecognized reflection model: {args.reflection_model}")
 
         h5f['l_est'][k] = l
         h5f['m_est'][k] = m
-        h5f['elevation'][k] = elev
-        h5f['azimuth'][k] = az
+        h5f['elevation'][k] = src_elev
+        h5f['azimuth'][k] = src_az
         h5f['height'][k] = height
 
         if args.export_npy:
@@ -169,17 +184,17 @@ if __name__ == "__main__":
             )
     parser.add_argument('tbn_filename', type=str,
             help='name of TBN data file')
-    parser.add_argument('--hdf5_file', '-f', type=str,
+    parser.add_argument('--hdf5-file', '-f', type=str,
             help='name of output HDF5 file')
     parser.add_argument('tx_freq', type=float,
             help='transmitter frequency')
-    parser.add_argument('--fft_len', type=int, default=16,
+    parser.add_argument('--fft-len', type=int, default=16,
             help='Size of FFT used in correlator')
-    parser.add_argument('--use_pfb', action='store_true',
+    parser.add_argument('--use-pfb', action='store_true',
             help='Whether to use PFB in correlator')
-    parser.add_argument('--use_pol', type=int, default=0,
+    parser.add_argument('--use-pol', type=int, default=0,
             help='Jeff what is this')
-    parser.add_argument('--integration_length', type=float, default=1,
+    parser.add_argument('--integration-length', type=float, default=1,
             help='Integration length in seconds')
     parser.add_argument('--all-sky', type=int, nargs='*',
             help='export all-sky plots for these integrations')
@@ -193,6 +208,11 @@ if __name__ == "__main__":
             help="export npy files of u, v, and visibility for each iteration - NOTE: these will take up LOTS OF SPACE if you run an entire file with this on!")
     parser.add_argument('--stop-after', type=int, default=999999999,
             help='stop running after this many integrations')
+    parser.add_argument('--point-finding-alg', nargs='?', default='peak', choices=('peak', 'CoM'),
+            help='select which algorithm is used to locate the point source in an image - options are the image peak or centre of mass')
+    parser.add_argument('--reflection-model', nargs='?', default='flat_fixed_dist', 
+            choices=('flat_fixed_dist', 'tilted_fixed_dist'),
+            help='select which ionospheric model is used to convert DoA into virtual height - flat and tilted halfway-point mirror models are available')
             
     known_transmitters.add_args(parser)
     args = parser.parse_args()

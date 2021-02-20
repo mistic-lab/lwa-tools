@@ -10,7 +10,7 @@ from lsl.common import stations
 from lsl.reader.ldp import LWASVDataFile
 
 from lwatools.file_tools.outputs import build_output_file
-from lwatools.imaging.imaging_utils import lm_to_ea, flatmirror_height
+from lwatools.imaging.imaging_utils import lm_to_ea, flatmirror_height, tiltedmirror_height
 from lwatools.vis_modeling.generate_visibilities import compute_visibilities_gen, select_antennas
 from lwatools.utils import known_transmitters
 from lwatools.vis_modeling.visibility_models import point_residual_abs, point_residual_cplx, point_source_visibility_model_uvw
@@ -108,10 +108,10 @@ def main(args):
     valid_ants, n_baselines = select_antennas(antennas, args.use_pol, exclude=[256]) # to exclude outrigger
 
     transmitter_coords = known_transmitters.parse_args(args)
-    _, _, distance = station.get_pointing_and_distance(transmitter_coords + [0])
+    tx_az, _, tx_dist = station.get_pointing_and_distance(transmitter_coords + [0])
 
     if args.hdf5_file:
-        h5f = build_output_file(args.hdf5_file, tbnf, args.transmitter, args.tx_freq, 
+        h5f = build_output_file(args.hdf5_file, tbnf, transmitter_coords, args.tx_freq, 
                 valid_ants, n_baselines, args.fft_len, args.use_pfb, args.use_pol, 
                 args.integration_length, opt_method, residual_function.__name__)
     else:
@@ -156,18 +156,22 @@ def main(args):
             #costs = np.append(costs, cost)
 
         # compute source sky location from parameter values
-        elev, az = lm_to_ea(l_out, m_out)
+        src_elev, src_az = lm_to_ea(l_out, m_out)
 
-        # TODO: tilted mirror model?
-        height = flatmirror_height(elev, distance)
+        if args.reflection_model == 'flat_fixed_dist':
+            height = flatmirror_height(src_elev, tx_dist)
+        elif args.reflection_model == 'tilted_fixed_dist':
+            height = tiltedmirror_height(src_elev, src_az, tx_az, tx_dist)
+        else:
+            raise NotImplementedError(f"unrecognized reflection model: {args.reflection_model}")
 
         # write data to h5 file
         h5f['l_start'][k] = l_init
         h5f['m_start'][k] = m_init
         h5f['l_est'][k] = l_out
         h5f['m_est'][k] = m_out
-        h5f['elevation'][k] = elev
-        h5f['azimuth'][k] = az
+        h5f['elevation'][k] = src_elev
+        h5f['azimuth'][k] = src_az
         h5f['cost'][k] = cost
         h5f['height'][k] = height
         h5f['skipped'][k] = skip
@@ -191,7 +195,7 @@ if __name__ == "__main__":
             )
     parser.add_argument('tbn_filename', type=str,
             help='name of TBN data file')
-    parser.add_argument('--hdf5_file', '-f', type=str,
+    parser.add_argument('--hdf5-file', '-f', type=str,
             help='name of output HDF5 file')
     parser.add_argument('tx_freq', type=float,
             help='transmitter frequency')
@@ -199,22 +203,25 @@ if __name__ == "__main__":
             help='initial guess for l parameter')
     parser.add_argument('m_guess', type=float,
             help='initial guess for m parameter')
-    parser.add_argument('--fft_len', type=int, default=16,
+    parser.add_argument('--fft-len', type=int, default=16,
             help='Size of FFT used in correlator')
-    parser.add_argument('--use_pfb', action='store_true',
+    parser.add_argument('--use-pfb', action='store_true',
             help='Whether to use PFB in correlator')
-    parser.add_argument('--use_pol', type=int, default=0,
+    parser.add_argument('--use-pol', type=int, default=0,
             help='Jeff what is this')
-    parser.add_argument('--integration_length', type=float, default=1,
+    parser.add_argument('--integration-length', type=float, default=1,
             help='Integration length in seconds')
     parser.add_argument('--scatter', type=int, nargs='*',
             help='export scatter plots for these integrations - warning: each scatter plot is about 6MB')
-    parser.add_argument('--scatter_every', type=int,
+    parser.add_argument('--scatter-every', type=int,
             help='export a scatter plot every x integrations')
     parser.add_argument('--exclude', type=int, nargs='*',
             help="don't use these integrations in parameter guessing")
-    parser.add_argument('--export_npy', action='store_true',
+    parser.add_argument('--export-npy', action='store_true',
             help="export npy files of u, v, and visibility for each iteration - NOTE: these will take up LOTS OF SPACE if you run an entire file with this on!")
+    parser.add_argument('--reflection-model', default='flat_fixed_dist', 
+            choices=('flat_fixed_dist', 'tilted_fixed_dist'),
+            help='select which ionospheric model is used to convert DoA into virtual height - flat and tilted halfway-point mirror models are available')
             
     known_transmitters.add_args(parser)
     args = parser.parse_args()
