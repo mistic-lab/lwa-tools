@@ -20,10 +20,11 @@ from lwatools.file_tools.outputs import build_output_file
 from lwatools.vis_modeling.visibility_models import point_source_visibility_model_uv
 from lwatools.imaging.imaging_utils import lm_to_ea, get_gimg_max, get_gimg_center_of_mass
 from lwatools.ionospheric_models.fixed_dist_mirrors import flatmirror_height, tiltedmirror_height
+from lwatools.vis_modeling.baselines import uvw_from_antenna_pairs
 from lwatools.vis_modeling.generate_visibilities import compute_visibilities_gen, select_antennas
 from lwatools.utils import known_transmitters
 
-def grid_visibilities(bl, freqs, vis, target_bin, jd, valid_ants, station, size=80, res=0.5, wres=0.10):
+def grid_visibilities(bl, freqs, vis, tx_freq, jd, valid_ants, station, size=80, res=0.5, wres=0.10, use_pol=0):
     '''
     Resamples the baseline-sampled visibilities on to a regular grid. 
 
@@ -34,7 +35,14 @@ def grid_visibilities(bl, freqs, vis, target_bin, jd, valid_ants, station, size=
     target_bin = the bin we want to use (number)
     jd = the date - shouldn't actually be important, but VisibilityDataSet needs it (number)
     valid_ants = which antennas we actually want to use (list)
+    station = lsl station object - usually stations.lwasv
+    according to LSL docstring:
+        size = number of wavelengths which the UV matrix spans (this 
+        determines the image resolution).
+        res = resolution of the UV matrix (determines image field of view).
+        wres: the gridding resolution of sqrt(w) when projecting to w=0.
 
+    use_pol = which polarization to use (only 0 is supported right now)
     returns:
     gridded_image
     '''
@@ -42,20 +50,22 @@ def grid_visibilities(bl, freqs, vis, target_bin, jd, valid_ants, station, size=
     # lsl.imaging.data.VisibilityDataSet. We have to build a bunch of stuff to
     # pass to its constructor.
 
+    # we only want the bin nearest to our frequency
+    target_bin = np.argmin([abs(tx_freq - f) for f in freqs])
+
     # Build antenna array
     antenna_array = simVis.build_sim_array(station, valid_ants, freqs/1e9, jd=jd, force_flat=True)
 
-    # build uvw
-    uvw_m = np.array([np.array([b[0].stand.x - b[1].stand.x, b[0].stand.y - b[1].stand.y, b[0].stand.z - b[1].stand.z]) for b in bl])
-
     uvw = np.empty((len(bl), 3, len(freqs)))
+
     for i, f in enumerate(freqs):
         # wavelength = 3e8/f # TODO this should be fixed. What is currently happening is not true. Well it is, but only if you're looking for a specific transmitter frequency. Which I guess we are. I just mean it's not generalized.
-        wavelength = 3e8/args.tx_freq
-        uvw[:,:,i] = uvw_m/wavelength
+        wavelength = 3e8/tx_freq
+        uvw[:,:,i] = uvw_from_antenna_pairs(bl, wavelength=wavelength)
+
 
     dataSet = VisibilityDataSet(jd=jd, freq=freqs, baselines=bl, uvw=uvw, antennarray=antenna_array)
-    if args.use_pol == 0:
+    if use_pol == 0:
         pol_string = 'XX'
         p=0 # this is related to the enumerate in lsl.imaging.utils.CorrelatedIDI().get_data_set() (for when there are multiple pols in a single dataset)
     else:
@@ -65,7 +75,8 @@ def grid_visibilities(bl, freqs, vis, target_bin, jd, valid_ants, station, size=
 
 
     # Use lsl.imaging.utils.build_gridded_image (takes a VisibilityDataSet)
-    gridded_image = build_gridded_image(dataSet, pol=pol_string, chan=target_bin, size=80, res=0.5) #default res/size
+    gridded_image = build_gridded_image(dataSet, pol=pol_string, chan=target_bin, size=size, res=res, wres=wres)
+
     # gridded_image = build_gridded_image(dataSet, pol=pol_string, chan=target_bin, size=100, res=0.3) #what I think it had ought to be if size=N and res=du
     # gridded_image = build_gridded_image(dataSet, pol=pol_string, chan=target_bin, size=3, res=0.01) #what I think it had ought to be if the docstring is true
     # gridded_image = build_gridded_image(dataSet, pol=pol_string, chan=target_bin, size=10, res=0.05) #what I think it had ought to be if the docstring is true
@@ -117,12 +128,10 @@ def main(args):
         # Normalize amplitudes since we want it based on phase
         vis/=np.abs(vis)
 
-        # we only want the bin nearest to our frequency
-        target_bin = np.argmin([abs(args.tx_freq - f) for f in freqs])
 
         jd = tbnf.get_info('start_time').jd
 
-        gridded_image = grid_visibilities(bl, freqs, vis, target_bin, jd, valid_ants, station)
+        gridded_image = grid_visibilities(bl, freqs, vis, args.tx_freq, jd, valid_ants, station)
 
 
         save_all_sky = (args.all_sky and k in args.all_sky) or (args.all_sky_every and k % args.all_sky_every == 0)
@@ -142,11 +151,12 @@ def main(args):
         else:
             raise NotImplementedError(f"unrecognized reflection model: {args.reflection_model}")
 
-        h5f['l_est'][k] = l
-        h5f['m_est'][k] = m
-        h5f['elevation'][k] = src_elev
-        h5f['azimuth'][k] = src_az
-        h5f['height'][k] = height
+        if args.hdf5_file:
+            h5f['l_est'][k] = l
+            h5f['m_est'][k] = m
+            h5f['elevation'][k] = src_elev
+            h5f['azimuth'][k] = src_az
+            h5f['height'][k] = height
 
         if args.export_npy:
             print("Exporting u, v, w, and visibility")
@@ -172,7 +182,8 @@ def main(args):
         if k>=args.stop_after:
             break
 
-    h5f.close()
+    if args.hdf5_file:
+        h5f.close()
     tbnf.close()
 
 

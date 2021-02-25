@@ -13,9 +13,11 @@ from lwatools.file_tools.outputs import build_output_file
 from lwatools.imaging.imaging_utils import lm_to_ea
 from lwatools.ionospheric_models.fixed_dist_mirrors import flatmirror_height, tiltedmirror_height
 from lwatools.vis_modeling.generate_visibilities import compute_visibilities_gen, select_antennas
+from lwatools.vis_modeling.baselines import uvw_from_antenna_pairs
 from lwatools.utils import known_transmitters
 from lwatools.vis_modeling.visibility_models import point_residual_abs, point_residual_cplx, point_source_visibility_model_uvw
 from lwatools.plot.vis import vis_phase_scatter_3d
+
 
 residual_function = point_residual_abs
 opt_method = 'lm'
@@ -35,11 +37,13 @@ def ls_cost(params, u, v, vis, resid=point_residual_abs):
     r = resid(params, u, v, vis)
     return np.dot(r,r)
 
-
-def fit_model_to_vis(bl, freqs, vis, tx_freq, residual_function, l_init, m_init,
+def fit_model_to_vis(uvw, vis, residual_function, l_init, m_init,
         opt_method='lm', export_npy=False, param_guess_av_length=10):
     '''
     Fits a point source (or equivalently a gaussian) model to the visibilities in vis.
+
+    uvw should be a (len(vis), 3) array of baseline vectors corresponding to
+    the visibiltiy samples.
 
     It's monochromatic (single-frequency) for now.
 
@@ -53,27 +57,12 @@ def fit_model_to_vis(bl, freqs, vis, tx_freq, residual_function, l_init, m_init,
     # monochromatic for now
     # TODO: make it not monochromatic
 
-    # we only want the bin nearest to our frequency
-    target_bin = np.argmin([abs(tx_freq - f) for f in freqs])
-
-    vis = vis[:, target_bin]
-    freqs = freqs[target_bin]
-
-    # extract the baseline measurements from the baseline object pairs
-    bl2d = np.array([np.array([b[0].stand.x - b[1].stand.x, b[0].stand.y - b[1].stand.y, b[0].stand.z-b[1].stand.z]) for b in bl])
-    u = bl2d[:, 0]
-    v = bl2d[:, 1]
-    w = bl2d[:, 2]
-
-    # convert the baselines to wavelenths -- great job jeff
-    wavelength = 3e8/tx_freq
-
-    u = u/wavelength
-    v = v/wavelength
-    w = w/wavelength
-
     # we're only fitting the phase, so normalize the visibilities
-    vis = vis/np.abs(vis)
+    #vis = vis/np.abs(vis)
+
+    u = uvw[:, 0]
+    v = uvw[:, 1]
+    w = uvw[:, 2]
 
     if export_npy:
         print("Exporting u, v, w, and visibility")
@@ -134,11 +123,17 @@ def main(args):
         # start the optimization at the mean point of the 10 most recent fits
         l_init = l_est[-param_guess_av_length:].mean()
         m_init = m_est[-param_guess_av_length:].mean()
+
+        target_bin = np.argmin([abs(args.tx_freq - f) for f in freqs])
         
+        # TODO: is this correct? should it be the bin center?
+        uvw = uvw_from_antenna_pairs(bl, wavelength=3e8/args.tx_freq)
+
+        vis_tbin = vis[:, target_bin]
 
         # do the model fitting to get parameter estimates
-        l_out, m_out, cost = fit_model_to_vis(bl, freqs, vis, args.tx_freq,
-                residual_function, l_init, m_init, export_npy=args.export_npy)
+        l_out, m_out, cost = fit_model_to_vis(uvw, vis_tbin, residual_function, 
+                l_init, m_init, export_npy=args.export_npy)
 
         # see if we should skip including this in future starting parameter estimates
         skip = False
@@ -180,7 +175,8 @@ def main(args):
         save_scatter = (args.scatter and k in args.scatter) or (args.scatter_every and k % args.scatter_every == 0)# or (args.scatter_bad_fits and skip)
         if save_scatter:
             print("Plotting model and data scatter")
-            vis_phase_scatter_3d(u, v, vis, l_out, m_out)
+            vis_phase_scatter_3d(uvw[:,0], uvw[:,1], vis_tbin, show=False,
+                    html_savename=f"scatter_{k}.html", l=l_out, m=m_out)
 
         k += 1
         print("\n\n")
