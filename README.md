@@ -9,3 +9,7 @@ a `-e` flag to make it editable if you're changing the library code. Once
 installed, it should be available using `import lwatools`. Most of the code
 also works as scripts that you can call directly from your shell, but they
 require the library to be installed in order to run.
+
+Due to some quirks in LSL, one of this library's dependencies, numpy must be
+installed in order to install `lwa-tools`. If installing this library fails,
+run `pip install numpy` and try again.

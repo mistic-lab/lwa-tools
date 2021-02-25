@@ -16,3 +16,4 @@ code/figures/
 *.hdf5
 
 *.egg-info
+.eggs/
