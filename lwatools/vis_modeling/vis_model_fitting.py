@@ -38,7 +38,7 @@ def ls_cost(params, u, v, vis, resid=point_residual_abs):
     return np.dot(r,r)
 
 def fit_model_to_vis(uvw, vis, residual_function, l_init, m_init,
-        opt_method='lm', export_npy=False, param_guess_av_length=10):
+        opt_method='lm', export_npy=False, param_guess_av_length=10, verbose=True, return_opt_result=False):
     '''
     Fits a point source (or equivalently a gaussian) model to the visibilities in vis.
 
@@ -72,7 +72,9 @@ def fit_model_to_vis(uvw, vis, residual_function, l_init, m_init,
         np.save('vis{}.npy'.format(k), vis)
 
 
-    print("Optimizing")
+    if verbose:
+        print("Optimizing")
+
     opt_result = least_squares(
             residual_function,
             [l_init, m_init], 
@@ -80,11 +82,15 @@ def fit_model_to_vis(uvw, vis, residual_function, l_init, m_init,
             method=opt_method
             )
 
-    print("Optimization result: {}".format(opt_result))
-    print("Start point: {}".format((l_init, m_init)))
+    if verbose:
+        print("Optimization result: {}".format(opt_result))
+        print("Start point: {}".format((l_init, m_init)))
     l_out, m_out = opt_result['x']
     cost = opt_result['cost']
 
+    if return_opt_result:
+        return opt_result
+    
     return l_out, m_out, cost
 
 
@@ -219,6 +225,9 @@ if __name__ == "__main__":
     parser.add_argument('--reflection-model', default='flat_fixed_dist', 
             choices=('flat_fixed_dist', 'tilted_fixed_dist'),
             help='select which ionospheric model is used to convert DoA into virtual height - flat and tilted halfway-point mirror models are available')
+    #parser.add_argument('--visibility-model', default='point',
+    #        choices=('point', 'gaussian'),
+    #        help='select what kind of model is fit to the visibility data')
             
     known_transmitters.add_args(parser)
     args = parser.parse_args()
