@@ -15,11 +15,10 @@ from lwatools.ionospheric_models.fixed_dist_mirrors import flatmirror_height, ti
 from lwatools.vis_modeling.generate_visibilities import compute_visibilities_gen, select_antennas
 from lwatools.vis_modeling.baselines import uvw_from_antenna_pairs
 from lwatools.utils import known_transmitters
-from lwatools.vis_modeling.visibility_models import point_residual_abs, point_residual_cplx, point_source_visibility_model_uvw
+from lwatools.vis_modeling.visibility_models import point_residual_abs, bind_gaussian_residual
 from lwatools.plot.vis import vis_phase_scatter_3d
 
 
-residual_function = point_residual_abs
 opt_method = 'lm'
 
 param_guess_av_length = 10
@@ -38,7 +37,7 @@ def ls_cost(params, u, v, vis, resid=point_residual_abs):
     return np.dot(r,r)
 
 def fit_model_to_vis(uvw, vis, residual_function, l_init, m_init,
-        opt_method='lm', export_npy=False, param_guess_av_length=10, verbose=True, return_opt_result=False):
+        opt_method='lm', export_npy=False, param_guess_av_length=10, verbose=True, return_extras=['cost']):
     '''
     Fits a point source (or equivalently a gaussian) model to the visibilities in vis.
 
@@ -50,8 +49,9 @@ def fit_model_to_vis(uvw, vis, residual_function, l_init, m_init,
     l_est, m_est should be arrays of previous l,m values, the mean of which is
     used as an optimization starting point.
 
-    returns l, m, cost
-    ( the optimized l,m parameter values and the cost function after optimization )
+    returns l, m, opt_result
+    
+    The optimized l,m parameter values and full optimization result dictionary.
     '''
 
     # monochromatic for now
@@ -86,12 +86,8 @@ def fit_model_to_vis(uvw, vis, residual_function, l_init, m_init,
         print("Optimization result: {}".format(opt_result))
         print("Start point: {}".format((l_init, m_init)))
     l_out, m_out = opt_result['x']
-    cost = opt_result['cost']
-
-    if return_opt_result:
-        return opt_result
     
-    return l_out, m_out, cost
+    return l_out, m_out, opt_result
 
 
 def main(args):
@@ -106,13 +102,24 @@ def main(args):
     transmitter_coords = known_transmitters.parse_args(args)
     tx_az, _, tx_dist = station.get_pointing_and_distance(transmitter_coords + [0])
 
+    if args.visibility_model == 'point':
+        residual_function = point_residual_abs
+        residual_function_chain = None
+    elif args.visibility_model == 'gaussian':
+        residual_function = bind_gaussian_residual(0.5)
+        residual_function_chain = None
+    elif args.visibility_model == 'chained':
+        residual_function = point_residual_abs
+        residual_function_chain = bind_gaussian_residual(0.5)
+    else:
+        raise RuntimeError("Unknown visibility model option: {args.visibility_model}")
+
     if args.hdf5_file:
         h5f = build_output_file(args.hdf5_file, tbnf, transmitter_coords, args.tx_freq, 
                 valid_ants, n_baselines, args.fft_len, args.use_pfb, args.use_pol, 
-                args.integration_length, opt_method, residual_function.__name__)
+                args.integration_length, opt_method, args.visibility_model)
     else:
-        print("No output file specified.")
-        return
+        raise RuntimeError('Please provide an output filename')
 
     # arrays for estimated parameters from each integration
     l_est = np.array([args.l_guess])
@@ -127,8 +134,12 @@ def main(args):
 
 
         # start the optimization at the mean point of the 10 most recent fits
-        l_init = l_est[-param_guess_av_length:].mean()
-        m_init = m_est[-param_guess_av_length:].mean()
+        if args.visibility_model == 'point':
+            l_init = l_est[-param_guess_av_length:].mean()
+            m_init = m_est[-param_guess_av_length:].mean()
+        else:
+            l_init = 0
+            m_init = 0
 
         target_bin = np.argmin([abs(args.tx_freq - f) for f in freqs])
         
@@ -138,8 +149,18 @@ def main(args):
         vis_tbin = vis[:, target_bin]
 
         # do the model fitting to get parameter estimates
-        l_out, m_out, cost = fit_model_to_vis(uvw, vis_tbin, residual_function, 
+        l_out, m_out, opt_result = fit_model_to_vis(uvw, vis_tbin, residual_function, 
                 l_init, m_init, export_npy=args.export_npy)
+
+        nfev = opt_result['nfev']
+
+        if residual_function_chain:
+            l_out, m_out, opt_result_chain = fit_model_to_vis(uvw, vis_tbin, residual_function_chain,
+                    l_out, m_out, export_npy=args.export_npy)
+
+            nfev += opt_result_chain['nfev']
+
+        cost = opt_result_chain['cost']
 
         # see if we should skip including this in future starting parameter estimates
         skip = False
@@ -177,6 +198,7 @@ def main(args):
         h5f['cost'][k] = cost
         h5f['height'][k] = height
         h5f['skipped'][k] = skip
+        h5f['nfev'][k] = nfev
 
         save_scatter = (args.scatter and k in args.scatter) or (args.scatter_every and k % args.scatter_every == 0)# or (args.scatter_bad_fits and skip)
         if save_scatter:
@@ -225,9 +247,9 @@ if __name__ == "__main__":
     parser.add_argument('--reflection-model', default='flat_fixed_dist', 
             choices=('flat_fixed_dist', 'tilted_fixed_dist'),
             help='select which ionospheric model is used to convert DoA into virtual height - flat and tilted halfway-point mirror models are available')
-    #parser.add_argument('--visibility-model', default='point',
-    #        choices=('point', 'gaussian'),
-    #        help='select what kind of model is fit to the visibility data')
+    parser.add_argument('--visibility-model', default='point',
+            choices=('point', 'gaussian', 'chained'),
+            help='select what kind of model is fit to the visibility data')
             
     known_transmitters.add_args(parser)
     args = parser.parse_args()

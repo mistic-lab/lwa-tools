@@ -1,7 +1,7 @@
 import h5py
 from lsl.common import stations
 
-def build_output_file(h5_fname, tbnf, transmitter_coords, tx_freq, valid_ants, n_baselines, fft_len, use_pfb, use_pol, integration_length, opt_method, res_function_name, station=stations.lwasv):
+def build_output_file(h5_fname, tbnf, transmitter_coords, tx_freq, valid_ants, n_baselines, fft_len, use_pfb, use_pol, integration_length, opt_method, vis_model, station=stations.lwasv):
     '''
     Opens the hdf5 file that will be used to store results, initializes
     datasets, and writes metadata.
@@ -26,7 +26,7 @@ def build_output_file(h5_fname, tbnf, transmitter_coords, tx_freq, valid_ants, n
     ats['use_pol'] = use_pol
     ats['int_length'] = integration_length
     ats['opt_method'] = opt_method
-    ats['res_function'] = res_function_name 
+    ats['vis_model'] = vis_model
 
     n_samples = tbnf.get_info('nframe') / tbnf.get_info('nantenna')
     samples_per_integration = int(integration_length * tbnf.get_info('sample_rate') / 512)
@@ -39,6 +39,7 @@ def build_output_file(h5_fname, tbnf, transmitter_coords, tx_freq, valid_ants, n
     h5f.create_dataset('azimuth', (n_integrations,))
     h5f.create_dataset('height', (n_integrations,))
     h5f.create_dataset('cost', (n_integrations,))
+    h5f.create_dataset('nfev', (n_integrations,))
     h5f.create_dataset('skipped', (n_integrations,), dtype='bool')
 
     return h5f

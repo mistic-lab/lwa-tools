@@ -64,6 +64,10 @@ def gaussian_residual_abs(params, u, v, w, vis, a=0.5):
     return np.abs(mc - vis)
 
 
-def bind_gaussian_residual(a):
+def bind_gaussian_residual(a=0.5):
+    '''
+    Binds the a parameter of the gaussian_residual_abs function.
 
+    The function returned from this is as if the a parameter in the residual function was fixed.
+    '''
     return lambda params, u, v, w, vis: gaussian_residual_abs(params, u, v, w, vis, a=a)
