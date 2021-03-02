@@ -160,7 +160,7 @@ def main(args):
 
             nfev += opt_result_chain['nfev']
 
-        cost = opt_result_chain['cost']
+        cost = opt_result['cost']
 
         # see if we should skip including this in future starting parameter estimates
         skip = False
