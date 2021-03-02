@@ -1,11 +1,22 @@
 import numpy as np
 from geographiclib.geodesic import Geodesic
 
-def flatmirror_height(elev, tx_dist):
+def flatmirror_height(tx_coords, rx_coords, elev):
     '''
     Computes the reflection virtual height using a simple flat mirror model.
     Assumes that the reflection occurs half way along the line between the transmitter and receiver.
+
+    Coordinate arguments should be (lat, lon) pairs in decimal degrees
+    elev should be in radians
     '''
+    tx_lat, tx_lon = tx_coords
+    rx_lat, rx_lon = rx_coords
+
+    # solve the inverse problem to find the tx to rx distance
+    rx_to_tx = Geodesic.WGS84.Inverse(rx_lat, rx_lon, tx_lat, tx_lon)
+
+    tx_dist = rx_to_tx['s12']
+
     return (tx_dist/2) * np.tan(elev)
 
 def flatmirror_location(tx_coords, rx_coords):
@@ -30,22 +41,37 @@ def flatmirror_location(tx_coords, rx_coords):
 
     return rx_to_midpoint['lat2'], rx_to_midpoint['lon2']
 
-def tiltedmirror_height(elev, az, tx_az, tx_dist):
+def tiltedmirror_height(tx_coords, rx_coords, elev, az):
     '''
     Computes the reflection virtual height using a tilted mirror model.
     Assumes the reflection occurs somewhere above the perpendicular bisector of the line between the transmitter and receiver.
+
+    Coordinate arguments should be (lat, lon) pairs in decimal degrees
+    elev and az should be in radians
     '''
+    tx_lat, tx_lon = tx_coords
+    rx_lat, rx_lon = rx_coords
+
+    # solve the inverse problem to find the tx to rx distance and azimuth at the rx
+    rx_to_tx = Geodesic.WGS84.Inverse(rx_lat, rx_lon, tx_lat, tx_lon)
+
+    tx_dist = rx_to_tx['s12']
+    tx_az = rx_to_tx['azi1'] * np.pi/180
+
     return (tx_dist/2) * np.tan(elev) / np.cos(az - tx_az)
 
 def tiltedmirror_location(tx_coords, rx_coords, az):
     '''
     Coordinate arguments should be (lat, long) pairs in decimal degrees.
 
-    az should be the azimuth of arrival in degrees
+    az should be the azimuth of arrival in radians
     '''
 
     tx_lat, tx_lon = tx_coords
     rx_lat, rx_lon = rx_coords
+
+    # convert to degrees
+    az = az * 180/np.pi
 
     # get the line between rx and xx
     rx_to_tx = Geodesic.WGS84.Inverse(rx_lat, rx_lon, tx_lat, tx_lon)

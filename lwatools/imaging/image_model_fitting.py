@@ -87,12 +87,12 @@ def grid_visibilities(bl, freqs, vis, tx_freq, jd, valid_ants, station, size=80,
 def main(args):
     station = stations.lwasv
 
-    transmitter_coords = known_transmitters.parse_args(args)
-    if transmitter_coords:
-        tx_az, _, tx_dist = station.get_pointing_and_distance(transmitter_coords + [0])
-    else:
+    tx_coords = known_transmitters.parse_args(args)
+    if not tx_coords:
         print("Please specify a transmitter location")
         return
+
+    rx_coords = [lwasv.lat * 180/np.pi, lwasv.lon * 180/np.pi]
 
     print(args)
 
@@ -105,7 +105,7 @@ def main(args):
     valid_ants, n_baselines = select_antennas(antennas, args.use_pol, exclude=[256]) # to exclude outrigger
 
     if args.hdf5_file:
-        h5f = build_output_file(args.hdf5_file, tbnf, transmitter_coords, args.tx_freq, 
+        h5f = build_output_file(args.hdf5_file, tbnf, tx_coords, args.tx_freq, 
                 valid_ants, n_baselines, args.fft_len, args.use_pfb, args.use_pol, 
                 args.integration_length, "imaging", "")
 
@@ -145,9 +145,9 @@ def main(args):
         src_elev, src_az = lm_to_ea(l, m)
 
         if args.reflection_model == 'flat_fixed_dist':
-            height = flatmirror_height(src_elev, tx_dist)
+            height = flatmirror_height(tx_coords, rx_coords, src_elev)
         elif args.reflection_model == 'tilted_fixed_dist':
-            height = tiltedmirror_height(src_elev, src_az, tx_az, tx_dist)
+            height = tiltedmirror_height(tx_coords, rx_coords, src_elev, src_az)
         else:
             raise NotImplementedError(f"unrecognized reflection model: {args.reflection_model}")
 

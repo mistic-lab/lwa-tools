@@ -2,6 +2,8 @@ import h5py
 import argparse
 from os.path import isfile
 
+from lsl.common import stations
+
 from lwatools.ionospheric_models.fixed_dist_mirrors import flatmirror_height, tiltedmirror_height
 
 def main(args):
@@ -14,8 +16,9 @@ def main(args):
     h5f = h5py.File(args.hdf5_filename, 'a')
 
     # get the info we need from the file attributes
-    tx_az = h5f.attrs['tx_bearing']
-    tx_dist = h5f.attrs['tx_distance']
+    tx_coords = h5f.attrs['transmitter_coords']
+    # TODO: store rx coords in h5 files so we don't depend on lsl here
+    rx_coords = [stations.lwasv.lat * 180/np.pi, stations.lwasv.lon * 180/np.pi]
 
     # the new dataset will be as long as the elevation data in the file
     d_len = len(h5f['elevation'])
@@ -33,7 +36,7 @@ def main(args):
         else:
             h5f.create_dataset(dataset_name, d_len)
 
-        h5f[dataset_name][:] = flatmirror_height(h5f['elevation'][:], tx_dist)
+        h5f[dataset_name][:] = flatmirror_height(tx_coords, rx_coords, h5f['elevation'][:])
 
     if 'tilted_halfway' in args.selected_models:
         dataset_name = 'height_tilted_halfway'
@@ -48,7 +51,7 @@ def main(args):
         else:
             h5f.create_dataset(dataset_name, d_len)
 
-        h5f[dataset_name][:] = tiltedmirror_height(h5f['elevation'][:], h5f['azimuth'][:], tx_az, tx_dist)
+        h5f[dataset_name][:] = tiltedmirror_height(tx_coords, rx_coords, h5f['elevation'][:], h5f['azimuth'][:])
 
     print("Done")
     h5f.close()

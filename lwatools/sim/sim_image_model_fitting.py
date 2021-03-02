@@ -55,8 +55,8 @@ def main(args):
     antennas = station.antennas
     valid_ants, n_baselines = select_antennas(antennas, h5fo.attrs['use_pol'], exclude=[256]) # to exclude outrigger
 
-    bearing = h5fo.attrs['tx_bearing']
-    distance = h5fo.attrs['tx_distance']
+    tx_coords = h5fo.attrs['tx_coordinates']
+    rx_coords = [station.lat * 180/np.pi, station.lon * 180/np.pi]
 
     ## Build freqs (same for every 'integration')
     freqs = np.empty((h5fo.attrs['fft_len'],),dtype=np.float64)
@@ -151,7 +151,7 @@ def main(args):
 
         # Compute other values of interest
         elev, az = lm_to_ea(l, m)
-        height = flatmirror_height(elev, distance)
+        height = flatmirror_height(tx_coords, rx_coords, elev)
 
         h5fo['l_est'][k] = l
         h5fo['m_est'][k] = m

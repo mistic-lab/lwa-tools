@@ -57,12 +57,11 @@ def main(args):
 
 
     ## Begin doing stuff
-    transmitter_coords = known_transmitters.parse_args(args)
-    if transmitter_coords:
-        bearing, _, distance = station.get_pointing_and_distance(transmitter_coords + [0])
-    else:
+    tx_coords = known_transmitters.parse_args(args)
+    if not transmitter_coords:
         print("Please specify a transmitter location")
         return
+    rx_coords = [station.lat * 180/np.pi, station.lon * 180/np.pi]
     
     antennas = station.antennas
 
@@ -188,7 +187,7 @@ def main(args):
 
         # Compute other values of interest
         elev, az = lm_to_ea(l, m)
-        height = flatmirror_height(elev, distance)
+        height = flatmirror_height(tx_coords, rx_coords, elev)
 
         if args.export_h5:
             h5f['l_est'][k] = l

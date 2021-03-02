@@ -99,8 +99,9 @@ def main(args):
 
     valid_ants, n_baselines = select_antennas(antennas, args.use_pol, exclude=[256]) # to exclude outrigger
 
-    transmitter_coords = known_transmitters.parse_args(args)
-    tx_az, _, tx_dist = station.get_pointing_and_distance(transmitter_coords + [0])
+    tx_coords = known_transmitters.parse_args(args)
+    rx_coords = [station.lat * 180/np.pi, station.lon * 180/np.pi]
+
 
     if args.visibility_model == 'point':
         residual_function = point_residual_abs
@@ -115,7 +116,7 @@ def main(args):
         raise RuntimeError("Unknown visibility model option: {args.visibility_model}")
 
     if args.hdf5_file:
-        h5f = build_output_file(args.hdf5_file, tbnf, transmitter_coords, args.tx_freq, 
+        h5f = build_output_file(args.hdf5_file, tbnf, tx_coords, args.tx_freq, 
                 valid_ants, n_baselines, args.fft_len, args.use_pfb, args.use_pol, 
                 args.integration_length, opt_method, args.visibility_model)
     else:
@@ -182,9 +183,9 @@ def main(args):
         src_elev, src_az = lm_to_ea(l_out, m_out)
 
         if args.reflection_model == 'flat_fixed_dist':
-            height = flatmirror_height(src_elev, tx_dist)
+            height = flatmirror_height(tx_coords, rx_coords, src_elev)
         elif args.reflection_model == 'tilted_fixed_dist':
-            height = tiltedmirror_height(src_elev, src_az, tx_az, tx_dist)
+            height = tiltedmirror_height(tx_coords, rx_coords, src_elev, src_az)
         else:
             raise NotImplementedError(f"unrecognized reflection model: {args.reflection_model}")
 
