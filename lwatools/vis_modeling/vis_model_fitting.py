@@ -110,8 +110,8 @@ def main(args):
         residual_function = bind_gaussian_residual(0.5)
         residual_function_chain = None
     elif args.visibility_model == 'chained':
-        residual_function = point_residual_abs
-        residual_function_chain = bind_gaussian_residual(0.5)
+        residual_function = bind_gaussian_residual(0.5)
+        residual_function_chain = point_residual_abs
     else:
         raise RuntimeError("Unknown visibility model option: {args.visibility_model}")
 
