@@ -3,7 +3,7 @@ import numpy as np
 def uvw_from_antenna_pairs(bl, wavelength=None):
     '''
     Takes bl, a list of lsl antenna objects like the one returned from
-    lwatools.vis_modeling.generate_visibilities.compute_visibilities_gen and
+    lwatools.visibilities.generate.compute_visibilities_gen and
     returns baseline coordinate vectors as an np array with shape (len(bl), 3).
 
     You can extract the individual u, v, and w vectors by

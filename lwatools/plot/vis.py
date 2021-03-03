@@ -3,7 +3,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
-from lwatools.vis_modeling.visibility_models import point_source_visibility_model_uv
+from lwatools.visibilities.models import point_source_visibility_model_uv
 
 def get_vis_indices(id_pairs):
     indices = []

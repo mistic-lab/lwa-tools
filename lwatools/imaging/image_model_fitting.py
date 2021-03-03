@@ -17,11 +17,11 @@ from lsl.sim import vis as simVis
 # from lsl.correlator import fx as fxc
 
 from lwatools.file_tools.outputs import build_output_file
-from lwatools.vis_modeling.visibility_models import point_source_visibility_model_uv
+from lwatools.visibilities.models import point_source_visibility_model_uv
 from lwatools.imaging.imaging_utils import lm_to_ea, get_gimg_max, get_gimg_center_of_mass
 from lwatools.ionospheric_models.fixed_dist_mirrors import flatmirror_height, tiltedmirror_height
-from lwatools.vis_modeling.baselines import uvw_from_antenna_pairs
-from lwatools.vis_modeling.generate_visibilities import compute_visibilities_gen, select_antennas
+from lwatools.visibilities.baselines import uvw_from_antenna_pairs
+from lwatools.visibilities.generate import compute_visibilities_gen, select_antennas
 from lwatools.utils import known_transmitters
 
 def grid_visibilities(bl, freqs, vis, tx_freq, jd, valid_ants, station, size=80, res=0.5, wres=0.10, use_pol=0):
