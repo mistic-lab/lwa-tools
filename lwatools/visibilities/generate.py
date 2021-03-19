@@ -13,6 +13,8 @@ from lsl.reader.errors import EOFError
 from lsl.common import stations
 from lsl.correlator import uvutils
 
+from lwatools.visibilities.baselines import uvw_from_antenna_pairs
+
 def extract_tbn_metadata(data_file, antennas, integration_length):
     sample_rate = data_file.get_info('sample_rate')
     print("| Sample rate: {}".format(sample_rate))
@@ -109,7 +111,7 @@ def compute_visibilities(tbn_file, ants, target_freq, station=stations.lwasv, in
 
 def compute_visibilities_gen(tbn_file, ants, station=stations.lwasv, integration_length=1, fft_length=16, use_pol=0, use_pfb=False):
     '''
-    Returns a generator to integrates and correlates a TBN file. Each iteration of the generator returns the baselines and the visibilities for one integration
+    Returns a generator to integrate and correlate a TBN file. Each iteration of the generator returns the baselines and the visibilities for one integration
 
     Parameters:
         - tbn_file: TBN file object opened using lsl.reader.ldp.LWASVDataFile
@@ -120,11 +122,12 @@ def compute_visibilities_gen(tbn_file, ants, station=stations.lwasv, integration
         - use_pol: currently only supports 0 (X polarization) and 1 (Y polarization) (default: 0)
         - use_pfb: configures the method that the FX correlator uses  (default: False)
     Returns:
-        A generator that yields (baseline_pairs, visibilities).
+        A generator that yields (baseline_pairs, freqs, visibilities).
         baseline_pairs is a list of pairs of antenna objects indicating which
         visibility is from where.
+        freqs is a list of frequency bin centers.
         visibilities is a numpy array of visibility samples corresponding to
-        the antenna pairs in baselines.
+        the antenna pairs in baselines for each frequency bin.
     '''
 
     print('Generating visibilities')
@@ -162,5 +165,68 @@ def compute_visibilities_gen(tbn_file, ants, station=stations.lwasv, integration
                                                 Pol=pol_string, return_baselines=True, gain_correct=True)
 
         yield (baseline_pairs, freqs, visibilities)
+
+    return
+
+def simulate_visibilities_gen(model, model_params, freqs, antennas, pol='XX'):
+    '''
+    TODO: untested
+    Returns a generator which provides simulated visibilities according to a specified model.
+
+    Parameters:
+        model: a function that takes as arugments
+            - u : a np.array of u coordinates
+            - v : a np.array of v coordinates
+            - some number of parameters (e.g. l, m)
+        and returns an np.array the same size as the u and v coordinate vectors containing the 
+        visibility samples from the model at the (u,v) points.
+
+        model_params: a list of tuples, each containing values for the
+        scalar parameters of model. Each tuple will be used to call model in a
+        subsequent iteration of the generator.
+
+        freqs: a list of frequencies. for now these are just used for baseline
+        calculation and not passed into the model. TODO: pass freqs to the model
+
+        ants: a list of lsl antenna objects the baselines of which will be
+        used to generate the (u,v) coordinate vectors
+
+    Returns:
+        A generator yielding a tuple of (baselines, freqs, visibilities)
+            - baselines: a list of pairs of antenna objects with each pair representing a baseline
+            - freqs: same as the argument freqs
+            - visibilities: a numpy array of visibility samples corresponding
+              to the antenna pairs in baselines for each frequency in freqs
+        The generator will yield a tuple for each set of parameters in model_params.
+    '''
+    print("Simulating visibilities")
+    print(f"| using model {model.__name__}")
+    print(f"| received {len(model_params)} sets of parameters, will emit that many sets of visibilities")
+
+    pol1, pol2 = fxc.pol_to_pols(pol)
+    antennas1 = [a for a in antennas if a.pol == pol1]
+    antennas2 = [a for a in antennas if a.pol == pol2]
+
+    baseline_indices = uvutils.get_baselines(antennas1, antennas2=antennas2, include_auto=False, indicies=True)
+    baselines = []
+    for bl in range(len(baseline_indices)):
+        baselines.append((antennas1[baseline_indices[bl][0]], antennas2[baseline_indices[bl][1]]))
+
+    for params in model_params:
+
+        visibilities = np.empty((len(baselines), len(freqs)), dtype=np.complex128)
+
+        for k, freq in enumerate(freqs):
+            wl = 3e8/freq
+
+            uvw = uvw_from_antenna_pairs(baselines, wl)
+
+            u = uvw[:, 0]
+            v = uvw[:, 1]
+            w = uvw[:, 2]
+
+            visibilities[:, k] = model(u, v, *params)
+
+        yield baselines, freqs, visibilities
 
     return

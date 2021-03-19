@@ -22,3 +22,46 @@ def uvw_from_antenna_pairs(bl, wavelength=None):
         uvw = uvw/wavelength
 
     return uvw
+
+def drop_antennas_outside_radius(antennas, radius):
+    '''
+    Takes a list of LSL antenna elements like the one in
+    lsl.common.stations.lwasv.antennas and filters out all antennas greater
+    than radius (in meters) away from the center of the array.
+    '''
+    sq_r = radius**2
+
+    filtered = [a for a in antennas if (a.stand.x**2 + a.stand.y**2) < sq_r]
+
+    if not filtered:
+        raise RuntimeError(f"Radius {radius}m contains no antennas")
+
+    return filtered
+
+def drop_visibilities_outside_radius(bl, vis, radius):
+    '''
+    Takes the outputs of the visibility generation functions (baseline antenna
+    pairs and visibilities) and returns them with contributions from
+    antennas outside of the specified radius (in meters) removed.
+    '''
+    sq_r = radius**2
+
+    both_inside = np.empty(len(bl), dtype=bool)
+
+    bl_filtered = []
+
+    for k,b in enumerate(bl):
+        sq_dist0 = b[0].stand.x**2 + b[0].stand.y**2
+        sq_dist1 = b[1].stand.x**2 + b[1].stand.y**2
+
+        both_inside[k] = (sq_dist0 < sq_r) and (sq_dist1 < sq_r)
+
+        if both_inside[k]:
+            bl_filtered.append(b)
+
+    vis_filtered = vis[both_inside].copy()
+
+    if not bl_filtered:
+        raise RuntimeError(f"Radius {radius}m contains no antennas")
+
+    return bl_filtered, vis_filtered

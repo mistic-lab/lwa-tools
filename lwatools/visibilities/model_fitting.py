@@ -37,7 +37,7 @@ def ls_cost(params, u, v, vis, resid=point_residual_abs):
     return np.dot(r,r)
 
 def fit_model_to_vis(uvw, vis, residual_function, l_init, m_init,
-        opt_method='lm', export_npy=False, param_guess_av_length=10, verbose=True, return_extras=['cost']):
+        opt_method='lm', export_npy=False, param_guess_av_length=10, verbose=True):
     '''
     Fits a point source (or equivalently a gaussian) model to the visibilities in vis.
 
@@ -132,7 +132,6 @@ def main(args):
 
     k = 0
     for bl, freqs, vis in compute_visibilities_gen(tbnf, valid_ants, integration_length=args.integration_length, fft_length=args.fft_len, use_pol=args.use_pol, use_pfb=args.use_pfb):
-
 
         # start the optimization at the mean point of the 10 most recent fits
         if args.visibility_model == 'point':

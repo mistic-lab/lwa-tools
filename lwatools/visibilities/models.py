@@ -50,6 +50,22 @@ def gaussian_source_visibility_model(u, v, l, m, a):
     '''
     return np.exp(-2 * np.pi**2 * a**2 * (u**2 + v**2) + 2j * np.pi * (l*u + v*m))
 
+def gaussian_source_noisy_visibility_model(u, v, l, m, a, sigma):
+    '''
+    Computes the visibility at u,v as if from a gaussian source located at (l,m).
+    Gaussian noise is added to the visibilities.
+
+    a is a (scalar) width parameter. FWHM = np.sqrt(8 np.ln(2)) * a
+
+    sigma is the standard deviation of the gaussian noise added to the real and
+    imag parts of the visibilities.
+    '''
+
+    model = gaussian_source_visibility_model(u, v, l, m, a)
+    noise_re = np.random.normal(0, sigma, len(model))
+    noise_im = np.random.normal(0, sigma, len(model))
+    return model + noise_re + 1j*noise_im
+
 def gaussian_residual_abs(params, u, v, w, vis, a=0.5):
     '''
     Calculates the residual of the model fit as the magintude of the difference
