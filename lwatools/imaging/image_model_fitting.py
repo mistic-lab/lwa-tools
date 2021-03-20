@@ -92,7 +92,7 @@ def main(args):
         print("Please specify a transmitter location")
         return
 
-    rx_coords = [lwasv.lat * 180/np.pi, lwasv.lon * 180/np.pi]
+    rx_coords = [station.lat * 180/np.pi, station.lon * 180/np.pi]
 
     print(args)
 

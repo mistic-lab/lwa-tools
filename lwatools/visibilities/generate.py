@@ -168,7 +168,7 @@ def compute_visibilities_gen(tbn_file, ants, station=stations.lwasv, integration
 
     return
 
-def simulate_visibilities_gen(model, model_params, freqs, antennas, pol='XX'):
+def simulate_visibilities_gen(model, model_params, freqs, antennas=stations.lwasv.antennas, pol='XX'):
     '''
     TODO: untested
     Returns a generator which provides simulated visibilities according to a specified model.
