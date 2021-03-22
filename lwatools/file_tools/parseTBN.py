@@ -338,7 +338,7 @@ def pull_meta(filename, key):
     else:
         return str(value)
 
-def make_sample_tbn(filename, num_frames=2000000):
+def make_sample_tbn(filename, num_frames=2000000, offset=0):
     """Takes the defined number of frames and writes them to a new .tbn file
 
     Parameters
@@ -347,30 +347,41 @@ def make_sample_tbn(filename, num_frames=2000000):
                 name of file to be read (may end in dat, tbn, or nothing)
     num_frames  :  int
                 number of frames to be kept (default: 2000000)
+    offset      : float
+                number of seconds to skip into file before reading (approximate)
     """
+    
+    in_name = os.path.realpath(filename).split('/')[-1]
+    in_base_name = in_name.split('.')[0]
 
-    # Make string for urllib
-    localFile='file:///'+os.path.realpath(filename)
+    out_name = in_base_name + '.tbn'
 
-    # print localFile
-    simple_name = os.path.realpath(filename).split('/')[-1]
-    simple_name = simple_name.split('.')[0]
+    print(f"Reading data from {filename}")
+    print(f"Writing data to {out_name}")
 
-    # Pull from dat and make tbn file
-    if not os.path.exists(simple_name+'.tbn'):
-        fh1 = urlopen(localFile)
-        fh2 = open(simple_name+'.tbn', 'wb')
-        fh2.write(fh1.read(tbn.FRAME_SIZE*num_frames))
-        fh1.close()
-        fh2.close()
-    print("\n{} TBN Size: {} kB".format(simple_name, os.path.getsize(simple_name+'.tbn')/1024.))
+    if os.path.exists(out_name):
+        raise RuntimeError(f"Output file {out_name} already exists - not going to overwrite it")
+
+    in_tbn = LWASVDataFile(filename)
+    out_fh = open(out_name, 'wb')
+
+    if offset > 0:
+        t = in_tbn.offset(offset)
+        print(f"Requested offset: {offset} seconds")
+        print(f"Achieved offset: {t} seconds")
+
+    out_fh.write(in_tbn.fh.read(tbn.FRAME_SIZE * num_frames))
+    out_fh.close()
+
+    in_tbn.close()
+
+    print("\n{} TBN Size: {} kB".format(out_name, os.path.getsize(out_name)/1024.))
 
     # Check that the datatype is correct according to lsl
-    idfN = LWASVDataFile(simple_name+'.tbn')
-    print("{} is of type: {} \n".format(simple_name, type(idfN)))
+    out_tbn = LWASVDataFile(out_name)
+    print("{} is of type: {} \n".format(out_name, type(out_tbn)))
 
-
-    idfN.close()
+    out_tbn.close()
 
 def count_frames(filename):
     """Prints out the number of frames for each antenna from a TBN file
