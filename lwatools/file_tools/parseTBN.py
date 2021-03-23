@@ -23,7 +23,7 @@ from lsl.common import stations
 
 from lwatools.utils import arrUtils
 
-__all__=['meta_to_txt', 'make_sample_tbn']
+__all__=['meta_to_txt', 'make_sample_tbn', 'extract_single_ant', 'pull_meta']
 
 def generate_multiple_ants(input_file, dp_stand_ids, polarization, chunk_length=2**20, max_length=-1, truncate=True):
     """Generate chunks of data from a list of antennas.
