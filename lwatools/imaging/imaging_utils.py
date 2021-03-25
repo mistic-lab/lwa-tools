@@ -13,8 +13,9 @@ from lwatools.visibilities.baselines import uvw_from_antenna_pairs
 def lm_to_ea(l, m):
     '''
     Converts direction cosines to elevation and azimuth in radians.
+    (new version)
     '''
-    azimuth = np.pi/2 - np.arctan(m/l)
+    azimuth = np.arctan2(l, m)
     
     elev = np.arccos(np.sqrt(l**2 + m**2))
 
