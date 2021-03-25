@@ -2,25 +2,15 @@
 
 import argparse
 import numpy as np
-import h5py
 import pickle
-from datetime import datetime
 import matplotlib.pyplot as plt
 
 from lsl.common import stations
 from lsl.reader.ldp import LWASVDataFile
-from lsl.imaging.data import VisibilityDataSet, PolarizationDataSet
-from lsl.imaging.analysis import find_point_sources
-from lsl.imaging.utils import build_gridded_image, plot_gridded_image
-from lsl.sim import vis as simVis
-# from lsl.writer import fitsidi
-# from lsl.correlator import fx as fxc
 
 from lwatools.file_tools.outputs import build_output_file
-from lwatools.visibilities.models import point_source_visibility_model_uv
 from lwatools.imaging.imaging_utils import lm_to_ea, get_gimg_max, get_gimg_center_of_mass, grid_visibilities
 from lwatools.ionospheric_models.fixed_dist_mirrors import flatmirror_height, tiltedmirror_height
-from lwatools.visibilities.baselines import uvw_from_antenna_pairs
 from lwatools.visibilities.generate import compute_visibilities_gen, select_antennas
 from lwatools.utils import known_transmitters
 

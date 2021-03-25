@@ -3,11 +3,10 @@ import warnings
 from scipy.ndimage import center_of_mass
 
 from lsl.imaging.data import VisibilityDataSet, PolarizationDataSet
-from lsl.imaging.analysis import find_point_sources
-from lsl.imaging.utils import build_gridded_image, plot_gridded_image
+from lsl.imaging.utils import build_gridded_image
 from lsl.sim import vis as simVis
 
-from lwatools.visibilities.generate import compute_visibilities_gen, select_antennas
+from lwatools.visibilities.generate import select_antennas
 from lwatools.visibilities.baselines import uvw_from_antenna_pairs
 
 def lm_to_ea(l, m):
