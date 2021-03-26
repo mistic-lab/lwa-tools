@@ -9,10 +9,12 @@ from lsl.common import stations
 from lsl.reader.ldp import LWASVDataFile
 
 from lwatools.file_tools.outputs import build_output_file
-from lwatools.imaging.imaging_utils import lm_to_ea, get_gimg_max, get_gimg_center_of_mass, grid_visibilities
+from lwatools.imaging.imaging_utils import get_gimg_max, get_gimg_center_of_mass, grid_visibilities
 from lwatools.ionospheric_models.fixed_dist_mirrors import flatmirror_height, tiltedmirror_height
-from lwatools.visibilities.generate import compute_visibilities_gen, select_antennas
+from lwatools.visibilities.generate import compute_visibilities_gen
+from lwatools.utils.array import select_antennas
 from lwatools.utils import known_transmitters
+from lwatools.utils.geometry import lm_to_ea
 
 
 def main(args):

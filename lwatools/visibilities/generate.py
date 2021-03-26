@@ -5,10 +5,8 @@ This script uses the LSL FX correlator to generate visibilities that can be
 used for synthesis imaging.  
 '''
 import numpy as np
-import matplotlib.pyplot as plt
 
 from lsl.correlator import fx as fxc
-from lsl.reader.ldp import LWASVDataFile
 from lsl.reader.errors import EOFError
 from lsl.common import stations
 from lsl.correlator import uvutils
@@ -29,32 +27,6 @@ def extract_tbn_metadata(data_file, antennas, integration_length):
     print("| Integrations in file: {}".format(n_integrations))
 
     return (sample_rate, center_freq, n_samples, samples_per_integration, n_integrations)
-
-def select_antennas(antennas, use_pol, exclude=None):
-    """
-    If you wish to skip the outrigger use exclude=[256]. You can also choose to skip other antennas in this manner.
-    """
-    print("\n\nFiltering for operational antennas:")
-    valid_ants = []
-    for a in antennas:
-        if a.pol != use_pol:
-            continue
-
-        if a.combined_status != 33:
-            print("| Antenna {} (stand {}, pol {}) has status {}".format(a.id, a.stand.id, a.pol, a.combined_status))
-            continue
-
-        if exclude is not None and a.stand.id in exclude:
-            print("| Skipping antenna {}".format(a.stand.id))
-            continue
-
-        valid_ants.append(a)
-
-    print("|=> Using {}/{} antennas".format(len(valid_ants), len(antennas)/2))
-
-    n_baselines = len(valid_ants) * (len(valid_ants) - 1) / 2 # thanks gauss
-
-    return valid_ants, n_baselines
 
 
 def compute_visibilities(tbn_file, ants, target_freq, station=stations.lwasv, integration_length=1, fft_length=16, use_pol=0, use_pfb=False):
@@ -170,7 +142,6 @@ def compute_visibilities_gen(tbn_file, ants, station=stations.lwasv, integration
 
 def simulate_visibilities_gen(model, model_params, freqs, antennas=stations.lwasv.antennas, pol='XX'):
     '''
-    TODO: untested
     Returns a generator which provides simulated visibilities according to a specified model.
 
     Parameters:

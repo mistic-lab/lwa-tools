@@ -21,7 +21,7 @@ from lsl.reader import tbn, errors
 from lsl.reader.ldp import LWASVDataFile, LWA1DataFile
 from lsl.common import stations
 
-from lwatools.utils import arrUtils
+from lwatools.utils.fft import get_frequency_bin
 
 __all__=['meta_to_txt', 'make_sample_tbn', 'extract_single_ant', 'pull_meta']
 
@@ -470,7 +470,7 @@ def TBN_to_freq_bin_matrix_indexed_by_dp_stand(filename, Fc, f1, fft_size=512, F
         array of size (num_dp_stands, samples_in_time_series)
     """
 
-    bin_of_f1 = arrUtils.get_frequency_bin(fc=Fc, f1=f1, fft_size=fft_size)
+    bin_of_f1 = get_frequency_bin(fc=Fc, f1=f1, fft_size=fft_size)
     input_data = LWASVDataFile(filename)
 
     lwasv = stations.lwasv

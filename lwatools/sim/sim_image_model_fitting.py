@@ -18,9 +18,10 @@ import pickle
 import matplotlib.pyplot as plt
 
 from lwatools.visibilities.models import point_source_visibility_model_uv
-from lwatools.imaging.imaging_utils import lm_to_ea, get_gimg_max
+from lwatools.imaging.imaging_utils import get_gimg_max
+from lwatools.utils.geometry import lm_to_ea
 from lwatools.ionospheric_models.fixed_dist_mirrors import flatmirror_height, tiltedmirror_height
-from lwatools.visibilities.generate import compute_visibilities_gen, select_antennas
+from lwatools.utils.array import select_antennas
 
 station=stations.lwasv
 

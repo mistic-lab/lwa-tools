@@ -6,19 +6,9 @@ from lsl.imaging.data import VisibilityDataSet, PolarizationDataSet
 from lsl.imaging.utils import build_gridded_image
 from lsl.sim import vis as simVis
 
-from lwatools.visibilities.generate import select_antennas
+from lwatools.utils.array import select_antennas
 from lwatools.visibilities.baselines import uvw_from_antenna_pairs
 
-def lm_to_ea(l, m):
-    '''
-    Converts direction cosines to elevation and azimuth in radians.
-    (new version)
-    '''
-    azimuth = np.arctan2(l, m)
-    
-    elev = np.arccos(np.sqrt(l**2 + m**2))
-
-    return elev, azimuth
 
 def get_gimg_max(gridded_image, return_img=False, weighting='natural', local_fraction=0.5, robust=0.0):
     # Plot/extract l/m do some modelling

@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from lsl.common import stations, metabundle, metabundleADP
 import known_transmitters
 import load_lwa_station
-from lwa_common import get_bearing
+from lwatools.utils.geometry import get_bearing
 
 def wavevector_baseline(ref_stand, sec_stand, station, transmitter_coords):
     stands = station.stands

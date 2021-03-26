@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 from mpl_toolkits.mplot3d import Axes3D
-from generate_visibilities import compute_visibilities, select_antennas
+from lwatools.utils.array import select_antennas
 from known_transmitters import get_transmitter_coords
 from lsl.common import stations
 from lsl.reader.ldp import LWASVDataFile
