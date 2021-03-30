@@ -1,5 +1,6 @@
 import math
 import numpy as np
+from geographiclib.geodesic import Geodesic
 
 def get_bearing(latlong_a, latlong_b, output_radians=True):
     """
@@ -16,20 +17,17 @@ def get_bearing(latlong_a, latlong_b, output_radians=True):
     - the bearing in degrees or radians
     """
 
-    lat_a = math.radians(latlong_a[0])
-    lat_b = math.radians(latlong_b[0])
+    lat_a, lon_a = latlong_a
+    lat_b, lon_b = latlong_b
 
-    dlong = math.radians(latlong_b[1] - latlong_a[1])
+    a_to_b = Geodesic.WGS84.Inverse(lat_a, lon_a, lat_b, lon_b)
 
-    rad_bearing = math.atan2(
-            math.sin(dlong) * math.cos(lat_b),
-            math.cos(lat_a) * math.sin(lat_b) - (math.sin(lat_a) * math.cos(lat_b) * math.cos(dlong))
-            )
+    deg_bearing = a_to_b['azi1']
 
     if output_radians:
-        return rad_bearing
+        return deg_bearing * np.pi/180
     else:
-        return math.degrees(rad_bearing)
+        return deg_bearing
 
 def get_angle_between_lm_pts(l1, m1, l2, m2, output_radians=True):
     """
