@@ -62,9 +62,7 @@ def main(args):
         # vis/=np.abs(vis)
 
 
-        jd = tbnf.get_info('start_time').jd
-
-        gridded_image = grid_visibilities(bl, freqs, vis, args.tx_freq, jd, station)
+        gridded_image = grid_visibilities(bl, freqs, vis, args.tx_freq, station)
 
 
         save_all_sky = (args.all_sky and k in args.all_sky) or (args.all_sky_every and k % args.all_sky_every == 0)
@@ -138,7 +136,7 @@ if __name__ == "__main__":
     parser.add_argument('--use-pfb', action='store_true',
             help='Whether to use PFB in correlator')
     parser.add_argument('--use-pol', type=int, default=0,
-            help='Jeff what is this')
+            help='0 means X and is the only currently supported option')
     parser.add_argument('--integration-length', type=float, default=1,
             help='Integration length in seconds')
     parser.add_argument('--all-sky', type=int, nargs='*',
