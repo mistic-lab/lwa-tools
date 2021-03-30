@@ -24,6 +24,12 @@ signal_amplitude = 10
 signal_el = 30 * np.pi/180
 signal_az = 50 * np.pi/180
 
+snr_dB = 5
+snr_power = 10**(snr_dB/10)
+signal_power = signal_amplitude**2
+noise_power = signal_power / snr_power
+noise_sigma = np.sqrt(noise_power / 2) # half for real half for imag.
+
 gain = 20 # not sure how this gets set but it's what all of our files have
 
 start_timestamp = int(datetime.timestamp(datetime.now()) * dp_common.fS)
@@ -48,28 +54,35 @@ for k, tf in enumerate(t_arr.reshape(t_arr.shape[0]//frame_size, frame_size)):
         a_xyz = np.array([a.stand.x, a.stand.y, a.stand.z])
         
         frame = SimFrame(stand, pol, fc, gain, k, timestamp)
-        frame.data = np.zeros(frame_size, dtype=np.complex)
+        frame.data = np.zeros(frame_size, dtype=complex)
 
         # add signal
         frame.data += tx_signal
 
-        # add the phase delay due to the antenna's distance from the phase reference plane
-        phase_ctr_source = np.array([0, 0, 1]) # phase center at zenith
-        pc_time_delay = np.dot(phase_ctr_source, a_xyz) / 3e8
+        # phase delay due to the antenna's distance from the phase reference plane
+        phase_ctr_unit_vector= np.array([0, 0, 1]) # phase center at zenith
+        pc_time_delay = np.dot(phase_ctr_unit_vector, a_xyz) / 3e8
         pc_phase_shift = np.exp(2j * np.pi * pc_time_delay * f_signal)
         frame.data *= pc_phase_shift
 
+        # cable delay
+        cbl_time_delay = a.cable.delay(frequency=f_signal)
+        cbl_phase_shift = np.exp(-2j * np.pi * cbl_time_delay * f_signal)
+        frame.data *= cbl_phase_shift
+        
         # add the phase delay due to the source's position in the sky
         source_unit_vector = np.array([np.cos(signal_el) * np.sin(signal_az), np.cos(signal_el) * np.cos(signal_az), np.sin(signal_el)])
-
         src_time_delay = np.dot(source_unit_vector, a_xyz) / 3e8
         src_phase_shift = np.exp(2j * np.pi * src_time_delay * f_signal)
         frame.data *= src_phase_shift
 
-        # add noise TODO: noise stuff
+        # add noise
+        noise = np.random.normal(0, noise_sigma, frame_size) + 1j * np.random.normal(0, noise_sigma, frame_size)
+        frame.data += noise
 
-
-
+        #noise_pwr = np.real(noise * np.conj(noise)).mean()
+        #sig_pwr = np.real(tx_signal * np.conj(tx_signal)).mean()
+        #print(f"snr: {10*np.log10(sig_pwr) - 10*np.log10(noise_pwr):.2f}dB")
 
         # write the frame to the file
         frame.write_raw_frame(tbnf)
