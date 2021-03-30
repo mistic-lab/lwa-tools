@@ -13,6 +13,8 @@ def simulate_tbn(tbnfh, len_s, fs, fc, f_signal, src_el, src_az, signal_amp, snr
     '''
     Generates a simulated TBN file containing a sinusoidal source and noise.
 
+    tbnfh is seek()'d back to the start so that you can immediately read from it using LWASVDataFile(fh=tbnfh)
+
     Arguments:
         tbnfh:       a file handle that can be written to in binary mode
         len_s:      the desired length of the TBN file in seconds - due to framing this will not be exactly right
@@ -22,17 +24,18 @@ def simulate_tbn(tbnfh, len_s, fs, fc, f_signal, src_el, src_az, signal_amp, snr
         src_el:     the elevation of the source above the horizon in degrees
         src_az:     the azimuth of the source measured clockwise from north in degrees
         signal_amp: the amplitude of the signal at each antenna
-        snr_dB:     the power signal to noise ratio in each antenna channel
+        snr_dB:     the power signal to noise ratio in each antenna channel - use None for no noise
         frame_size: the number of samples per frame - can cause issues if not set to 512
         gain:       not really sure what this does but it's 20 in all of our actual data
         station:    an LSL station object representing the telescope used to capture the data
     '''
 
     # figure out the noise variance
-    snr_power = 10**(snr_dB/10)
-    signal_power = signal_amp**2
-    noise_power = signal_power / snr_power
-    noise_sigma = np.sqrt(noise_power / 2) # half for real half for imag.
+    if snr_dB is not None:
+        snr_power = 10**(snr_dB/10)
+        signal_power = signal_amp**2
+        noise_power = signal_power / snr_power
+        noise_sigma = np.sqrt(noise_power / 2) # half for real half for imag.
 
     start_timestamp = int(datetime.timestamp(datetime.now()) * dp_common.fS)
 
@@ -77,13 +80,17 @@ def simulate_tbn(tbnfh, len_s, fs, fc, f_signal, src_el, src_az, signal_amp, snr
             src_phase_shift = np.exp(2j * np.pi * src_time_delay * f_signal)
             frame.data *= src_phase_shift
 
-            # add noise
-            noise = np.random.normal(0, noise_sigma, frame_size) + 1j * np.random.normal(0, noise_sigma, frame_size)
-            frame.data += noise
+            if snr_dB is not None:
+                # add noise
+                noise = np.random.normal(0, noise_sigma, frame_size) + 1j * np.random.normal(0, noise_sigma, frame_size)
+                frame.data += noise
 
-            #noise_pwr = np.real(noise * np.conj(noise)).mean()
-            #sig_pwr = np.real(tx_signal * np.conj(tx_signal)).mean()
-            #print(f"snr: {10*np.log10(sig_pwr) - 10*np.log10(noise_pwr):.2f}dB")
+                #noise_pwr = np.real(noise * np.conj(noise)).mean()
+                #sig_pwr = np.real(tx_signal * np.conj(tx_signal)).mean()
+                #print(f"snr: {10*np.log10(sig_pwr) - 10*np.log10(noise_pwr):.2f}dB")
 
             # write the frame to the file
             frame.write_raw_frame(tbnfh)
+    
+    # seek back to the start of the file so it can be read without reopening
+    tbnfh.seek(0)
