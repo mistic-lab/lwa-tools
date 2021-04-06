@@ -2,16 +2,16 @@
 
 import argparse
 import numpy as np
-import h5py
-from datetime import datetime
+# import h5py
+# from datetime import datetime
 from scipy.optimize import least_squares
-import plotly.graph_objects as go
+# import plotly.graph_objects as go
 from lsl.common import stations
 from lsl.reader.ldp import LWASVDataFile
 
 from lwatools.file_tools.outputs import build_output_file
 from lwatools.utils.geometry import lm_to_ea
-from lwatools.ionospheric_models.fixed_dist_mirrors import flatmirror_height, tiltedmirror_height
+# from lwatools.ionospheric_models.fixed_dist_mirrors import flatmirror_height, tiltedmirror_height
 from lwatools.visibilities.generate import compute_visibilities_gen
 from lwatools.utils.array import select_antennas
 from lwatools.visibilities.baselines import uvw_from_antenna_pairs
@@ -94,124 +94,118 @@ def fit_model_to_vis(uvw, vis, residual_function, l_init, m_init,
 def main(args):
 
     print("Opening TBN file ({})".format(args.tbn_filename))
-    tbnf = LWASVDataFile(args.tbn_filename, ignore_timetag_errors=True)
+    with LWASVDataFile(args.tbn_filename, ignore_timetag_errors=True) as tbnf:
     
-    antennas = station.antennas
+        antennas = station.antennas
 
-    valid_ants, n_baselines = select_antennas(antennas, args.use_pol, exclude=[256]) # to exclude outrigger
+        valid_ants, n_baselines = select_antennas(antennas, args.use_pol)
 
-    tx_coords = known_transmitters.parse_args(args)
-    rx_coords = [station.lat * 180/np.pi, station.lon * 180/np.pi]
+        tx_coords = known_transmitters.parse_args(args)
+    #     rx_coords = [station.lat * 180/np.pi, station.lon * 180/np.pi]
 
 
-    if args.visibility_model == 'point':
-        residual_function = point_residual_abs
-        residual_function_chain = None
-    elif args.visibility_model == 'gaussian':
-        residual_function = bind_gaussian_residual(0.5)
-        residual_function_chain = None
-    elif args.visibility_model == 'chained':
-        residual_function = bind_gaussian_residual(0.5)
-        residual_function_chain = point_residual_abs
-    else:
-        raise RuntimeError("Unknown visibility model option: {args.visibility_model}")
-
-    if args.hdf5_file:
-        h5f = build_output_file(args.hdf5_file, tbnf, tx_coords, args.tx_freq, 
-                valid_ants, n_baselines, args.fft_len, args.use_pfb, args.use_pol, 
-                args.integration_length, opt_method, args.visibility_model)
-    else:
-        raise RuntimeError('Please provide an output filename')
-
-    # arrays for estimated parameters from each integration
-    l_est = np.array([args.l_guess])
-    m_est = np.array([args.m_guess])
-    #costs = np.array([])
-    elev_est = np.array([])
-    az_est = np.array([])
-    height_est = np.array([])
-
-    k = 0
-    for bl, freqs, vis in compute_visibilities_gen(tbnf, valid_ants, integration_length=args.integration_length, fft_length=args.fft_len, use_pol=args.use_pol, use_pfb=args.use_pfb):
-
-        # start the optimization at the mean point of the 10 most recent fits
         if args.visibility_model == 'point':
-            l_init = l_est[-param_guess_av_length:].mean()
-            m_init = m_est[-param_guess_av_length:].mean()
+            residual_function = point_residual_abs
+            residual_function_chain = None
+        elif args.visibility_model == 'gaussian':
+            residual_function = bind_gaussian_residual(1)
+            residual_function_chain = None
+        elif args.visibility_model == 'chained':
+            residual_function = bind_gaussian_residual(0.5)
+            residual_function_chain = point_residual_abs
         else:
-            l_init = 0
-            m_init = 0
+            raise RuntimeError("Unknown visibility model option: {args.visibility_model}")
 
-        target_bin = np.argmin([abs(args.tx_freq - f) for f in freqs])
-        
-        # TODO: is this correct? should it be the bin center?
-        uvw = uvw_from_antenna_pairs(bl, wavelength=3e8/args.tx_freq)
-
-        vis_tbin = vis[:, target_bin]
-
-        # do the model fitting to get parameter estimates
-        l_out, m_out, opt_result = fit_model_to_vis(uvw, vis_tbin, residual_function, 
-                l_init, m_init, export_npy=args.export_npy)
-
-        nfev = opt_result['nfev']
-
-        if residual_function_chain:
-            l_out, m_out, opt_result_chain = fit_model_to_vis(uvw, vis_tbin, residual_function_chain,
-                    l_out, m_out, export_npy=args.export_npy)
-
-            nfev += opt_result_chain['nfev']
-
-        cost = opt_result['cost']
-
-        # see if we should skip including this in future starting parameter estimates
-        skip = False
-        if args.exclude and k in args.exclude:
-            print("Not including in parameter estimates by request")
-            skip = True
-        #elif len(costs) > 10:
-        #    recent_costs = costs[-cost_threshold_av_length:]
-        #    if cost > (recent_costs.mean() + cost_threshold_sigma * recent_costs.std()):
-        #        print("Not including in parameter estimates due to cost")
-        #        skip = True
-
-        if not skip:
-            l_est = np.append(l_est, l_out)
-            m_est = np.append(m_est, m_out)
-            #costs = np.append(costs, cost)
-
-        # compute source sky location from parameter values
-        src_elev, src_az = lm_to_ea(l_out, m_out)
-
-        if args.reflection_model == 'flat_fixed_dist':
-            height = flatmirror_height(tx_coords, rx_coords, src_elev)
-        elif args.reflection_model == 'tilted_fixed_dist':
-            height = tiltedmirror_height(tx_coords, rx_coords, src_elev, src_az)
+        if not args.hdf5_file:
+            raise RuntimeError('Please provide an output filename')
         else:
-            raise NotImplementedError(f"unrecognized reflection model: {args.reflection_model}")
+            with build_output_file(args.hdf5_file, tbnf, args.tx_freq, 
+                    valid_ants, n_baselines, args.fft_len, args.use_pfb, args.use_pol, 
+                    args.integration_length, opt_method, args.visibility_model, transmitter_coords=tx_coords) as h5f:
 
-        # write data to h5 file
-        h5f['l_start'][k] = l_init
-        h5f['m_start'][k] = m_init
-        h5f['l_est'][k] = l_out
-        h5f['m_est'][k] = m_out
-        h5f['elevation'][k] = src_elev
-        h5f['azimuth'][k] = src_az
-        h5f['cost'][k] = cost
-        h5f['height'][k] = height
-        h5f['skipped'][k] = skip
-        h5f['nfev'][k] = nfev
+                # arrays for estimated parameters from each integration
+                l_est = np.array([args.l_guess])
+                m_est = np.array([args.m_guess])
 
-        save_scatter = (args.scatter and k in args.scatter) or (args.scatter_every and k % args.scatter_every == 0)# or (args.scatter_bad_fits and skip)
-        if save_scatter:
-            print("Plotting model and data scatter")
-            vis_phase_scatter_3d(uvw[:,0], uvw[:,1], vis_tbin, show=False,
-                    html_savename=f"scatter_{k}.html", l=l_out, m=m_out)
+                k = 0
+                for bl, freqs, vis in compute_visibilities_gen(tbnf, valid_ants, integration_length=args.integration_length, fft_length=args.fft_len, use_pol=args.use_pol, use_pfb=args.use_pfb):
 
-        k += 1
-        print("\n\n")
+                    # start the optimization at the mean point of the 10 most recent fits
+                    if args.visibility_model == 'point':
+                        l_init = l_est[-param_guess_av_length:].mean()
+                        m_init = m_est[-param_guess_av_length:].mean()
+                    else:
+                        l_init = 0
+                        m_init = 0
+
+                    target_bin = np.argmin([abs(args.tx_freq - f) for f in freqs])
+                    
+                    # TODO: is this correct? should it be the bin center?
+                    uvw = uvw_from_antenna_pairs(bl, wavelength=3e8/args.tx_freq)
+
+                    vis_tbin = vis[:, target_bin]
+
+                    # do the model fitting to get parameter estimates
+                    l_out, m_out, opt_result = fit_model_to_vis(uvw, vis_tbin, residual_function, 
+                            l_init, m_init, export_npy=args.export_npy)
+
+                    nfev = opt_result['nfev']
+
+                    if residual_function_chain:
+                        l_out, m_out, opt_result_chain = fit_model_to_vis(uvw, vis_tbin, residual_function_chain,
+                                l_out, m_out, export_npy=args.export_npy)
+
+                        nfev += opt_result_chain['nfev']
+
+                    cost = opt_result['cost']
+
+                    # see if we should skip including this in future starting parameter estimates
+                    skip = False
+                    if args.exclude and k in args.exclude:
+                        print("Not including in parameter estimates by request")
+                        skip = True
+                    #elif len(costs) > 10:
+                    #    recent_costs = costs[-cost_threshold_av_length:]
+                    #    if cost > (recent_costs.mean() + cost_threshold_sigma * recent_costs.std()):
+                    #        print("Not including in parameter estimates due to cost")
+                    #        skip = True
+
+                    if not skip:
+                        l_est = np.append(l_est, l_out)
+                        m_est = np.append(m_est, m_out)
+                        #costs = np.append(costs, cost)
+
+                    # compute source sky location from parameter values
+                    src_elev, src_az = lm_to_ea(l_out, m_out)
+
+                    # if args.reflection_model == 'flat_fixed_dist':
+                    #     height = flatmirror_height(tx_coords, rx_coords, src_elev)
+                    # elif args.reflection_model == 'tilted_fixed_dist':
+                    #     height = tiltedmirror_height(tx_coords, rx_coords, src_elev, src_az)
+                    # else:
+                    #     raise NotImplementedError(f"unrecognized reflection model: {args.reflection_model}")
+
+                    # write data to h5 file
+                    h5f['l_start'][k] = l_init
+                    h5f['m_start'][k] = m_init
+                    h5f['l_est'][k] = l_out
+                    h5f['m_est'][k] = m_out
+                    h5f['elevation'][k] = src_elev
+                    h5f['azimuth'][k] = src_az
+                    h5f['cost'][k] = cost
+                    # h5f['height'][k] = height
+                    h5f['skipped'][k] = skip
+                    h5f['nfev'][k] = nfev
+
+                    save_scatter = (args.scatter and k in args.scatter) or (args.scatter_every and k % args.scatter_every == 0)# or (args.scatter_bad_fits and skip)
+                    if save_scatter:
+                        print("Plotting model and data scatter")
+                        vis_phase_scatter_3d(uvw[:,0], uvw[:,1], vis_tbin, show=False,
+                                html_savename=f"scatter_{k}.html", l=l_out, m=m_out)
+
+                    k += 1
+                    print("\n\n")
   
-    h5f.close()
-    tbnf.close()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -221,20 +215,20 @@ if __name__ == "__main__":
             )
     parser.add_argument('tbn_filename', type=str,
             help='name of TBN data file')
-    parser.add_argument('--hdf5-file', '-f', type=str,
-            help='name of output HDF5 file')
     parser.add_argument('tx_freq', type=float,
             help='transmitter frequency')
-    parser.add_argument('l_guess', type=float,
+    parser.add_argument('--hdf5-file', '-f', type=str, default='output.h5',
+            help='name of output HDF5 file')
+    parser.add_argument('--l-guess', type=float, default=0.0,
             help='initial guess for l parameter')
-    parser.add_argument('m_guess', type=float,
+    parser.add_argument('--m-guess', type=float, default=0.0,
             help='initial guess for m parameter')
     parser.add_argument('--fft-len', type=int, default=16,
             help='Size of FFT used in correlator')
     parser.add_argument('--use-pfb', action='store_true',
             help='Whether to use PFB in correlator')
     parser.add_argument('--use-pol', type=int, default=0,
-            help='Jeff what is this')
+            help='0 for X which is the only supported polarization')
     parser.add_argument('--integration-length', type=float, default=1,
             help='Integration length in seconds')
     parser.add_argument('--scatter', type=int, nargs='*',
@@ -245,10 +239,10 @@ if __name__ == "__main__":
             help="don't use these integrations in parameter guessing")
     parser.add_argument('--export-npy', action='store_true',
             help="export npy files of u, v, and visibility for each iteration - NOTE: these will take up LOTS OF SPACE if you run an entire file with this on!")
-    parser.add_argument('--reflection-model', default='flat_fixed_dist', 
-            choices=('flat_fixed_dist', 'tilted_fixed_dist'),
-            help='select which ionospheric model is used to convert DoA into virtual height - flat and tilted halfway-point mirror models are available')
-    parser.add_argument('--visibility-model', default='point',
+    # parser.add_argument('--reflection-model', default='flat_fixed_dist', 
+    #         choices=('flat_fixed_dist', 'tilted_fixed_dist'),
+    #         help='select which ionospheric model is used to convert DoA into virtual height - flat and tilted halfway-point mirror models are available')
+    parser.add_argument('--visibility-model', default='gaussian',
             choices=('point', 'gaussian', 'chained'),
             help='select what kind of model is fit to the visibility data')
             

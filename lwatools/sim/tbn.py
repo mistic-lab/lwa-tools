@@ -9,25 +9,25 @@ from lsl.sim.tbn import SimFrame
 from lsl.common import stations
 from lsl.common import dp as dp_common
 
-def simulate_tbn(tbnfh, len_s, fs, fc, f_signal, src_el, src_az, signal_amp, snr_dB, frame_size=512, gain=20, station=stations.lwasv):
+def simulate_tbn(tbnfh, len_s, fc, f_signal, fs=100e3,  src_el=90, src_az=0, signal_amp=1, snr_dB=None, frame_size=512, gain=20, station=stations.lwasv):
     '''
     Generates a simulated TBN file containing a sinusoidal source and noise.
 
     tbnfh is seek()'d back to the start so that you can immediately read from it using LWASVDataFile(fh=tbnfh)
 
     Arguments:
-        tbnfh:       a file handle that can be written to in binary mode
+        tbnfh:      a file handle that can be written to in binary mode
         len_s:      the desired length of the TBN file in seconds - due to framing this will not be exactly right
-        fs:         the sample rate of the file (usually 100kHz)
         fc:         the center frequency of the file (sometimes called freq1)
         f_signal:   the frequency of the signal transmitted by the source
-        src_el:     the elevation of the source above the horizon in degrees
-        src_az:     the azimuth of the source measured clockwise from north in degrees
-        signal_amp: the amplitude of the signal at each antenna
-        snr_dB:     the power signal to noise ratio in each antenna channel - use None for no noise
-        frame_size: the number of samples per frame - can cause issues if not set to 512
-        gain:       not really sure what this does but it's 20 in all of our actual data
-        station:    an LSL station object representing the telescope used to capture the data
+        fs:         the sample rate of the file (default: 100kHz)
+        src_el:     the elevation of the source above the horizon in degrees (default: 90)
+        src_az:     the azimuth of the source measured clockwise from north in degrees (default: 0)
+        signal_amp: the amplitude of the signal at each antenna (default: 1)
+        snr_dB:     the power signal to noise ratio in each antenna channel - use None for no noise (default: None)
+        frame_size: the number of samples per frame - can cause issues if not set to 512 (default: 512)
+        gain:       not really sure what this does but it's 20 in all of our actual data (default: 20)
+        station:    an LSL station object representing the telescope used to capture the data (default: stations.lwasv)
     '''
 
     # figure out the noise variance
@@ -47,7 +47,7 @@ def simulate_tbn(tbnfh, len_s, fs, fc, f_signal, src_el, src_az, signal_amp, snr
     time_delta = int(frame_size * dp_common.fS / fs)
 
     for k, tf in enumerate(t_arr.reshape(t_arr.shape[0]//frame_size, frame_size)):
-        print(f"writing frame {k}/{n_frames - 1}")
+        print(f"| Writing all frames for time index {k}/{n_frames - 1}")
         tx_signal = signal_amp * np.exp(2j*np.pi*(f_signal - fc)*tf)
 
         timestamp = start_timestamp + k * time_delta

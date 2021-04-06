@@ -22,7 +22,7 @@ def select_antennas(antennas, use_pol, exclude=None):
 
         valid_ants.append(a)
 
-    print("|=> Using {}/{} antennas".format(len(valid_ants), len(antennas)/2))
+    print("|=> Using {}/{} antennas\n".format(len(valid_ants), len(antennas)/2))
 
     n_baselines = len(valid_ants) * (len(valid_ants) - 1) / 2 # thanks gauss
 

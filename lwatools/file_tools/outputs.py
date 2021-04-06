@@ -1,7 +1,7 @@
 import h5py
 from lsl.common import stations
 
-def build_output_file(h5_fname, tbnf, transmitter_coords, tx_freq, valid_ants, n_baselines, fft_len, use_pfb, use_pol, integration_length, opt_method, vis_model, station=stations.lwasv):
+def build_output_file(h5_fname, tbnf, tx_freq, valid_ants, n_baselines, fft_len, use_pfb, use_pol, integration_length, opt_method, vis_model, station=stations.lwasv, transmitter_coords=None, heights=False):
     '''
     Opens the hdf5 file that will be used to store results, initializes
     datasets, and writes metadata.
@@ -13,8 +13,9 @@ def build_output_file(h5_fname, tbnf, transmitter_coords, tx_freq, valid_ants, n
     # write metadata to attributes
     ats = h5f.attrs
     ats['tbn_filename'] = tbnf.filename
-    ats['transmitter_coords'] = transmitter_coords
-    ats['tx_bearing'], _, ats['tx_distance'] = station.get_pointing_and_distance(transmitter_coords + [0])
+    if transmitter_coords:
+        ats['transmitter_coords'] = transmitter_coords
+        ats['tx_bearing'], _, ats['tx_distance'] = station.get_pointing_and_distance(transmitter_coords + [0])
     ats['tx_freq'] = tx_freq
     ats['sample_rate'] = tbnf.get_info('sample_rate')
     ats['start_time'] = str(tbnf.get_info('start_time').utc_datetime)
@@ -37,7 +38,8 @@ def build_output_file(h5_fname, tbnf, transmitter_coords, tx_freq, valid_ants, n
     h5f.create_dataset('m_est', (n_integrations,))
     h5f.create_dataset('elevation', (n_integrations,))
     h5f.create_dataset('azimuth', (n_integrations,))
-    h5f.create_dataset('height', (n_integrations,))
+    if heights==True:
+        h5f.create_dataset('height', (n_integrations,))
     h5f.create_dataset('cost', (n_integrations,))
     h5f.create_dataset('nfev', (n_integrations,))
     h5f.create_dataset('skipped', (n_integrations,), dtype='bool')

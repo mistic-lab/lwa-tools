@@ -39,12 +39,11 @@ def get_gimg_max(gridded_image, return_img=False, weighting='natural', local_fra
     m = m[row]
 
     if return_img==False:
-        return l, m
+        return (l, m)
     else:
-        return l,m, img, extent
+        return (l, m, img, extent)
 
 def get_gimg_center_of_mass(gridded_image, return_img=False, weighting='natural', local_fraction=0.5, robust=0.0):
-    #TODO hasn't been tested
     # Plot/extract l/m do some modelling
     # I've largely borrow this from plot_gridded_image
     img = gridded_image.image(weighting=weighting, local_fraction=local_fraction, robust=robust)
@@ -63,13 +62,26 @@ def get_gimg_center_of_mass(gridded_image, return_img=False, weighting='natural'
     col=int(col)
 
     #! Note the negative
+    if -col < 0:
+        warnings.warn("l index given is %f which is outside range of %r. Setting l index to 0." % (-col, str(l.shape)))
+        col=0
+    elif -col > len(l)-1:
+        warnings.warn("l index given is %f which is outside range of %r. Setting l index to -1." % (-col, str(l.shape)))
+        col=-1
+    if row < 0:
+        warnings.warn("m index given is %f which is outside range of %r. Setting m index to 0." % (row, str(m.shape)))
+        row=0
+    elif row > len(m)-1:
+        warnings.warn("m index given is %f which is outside range of %r. Setting m index to -1." % (row, str(m.shape)))
+        row=-1
+
     l = l[-col]
     m = m[row]
 
     if return_img==False:
-        return l, m
+        return (l, m)
     else:
-        return l,m, img, extent
+        return (l, m, img, extent)
 
 def grid_visibilities(bl, freqs, vis, tx_freq, station, size=80, res=0.5, wres=0.10, use_pol=0, jd=None):
     '''
