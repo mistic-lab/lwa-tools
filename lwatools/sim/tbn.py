@@ -9,7 +9,7 @@ from lsl.sim.tbn import SimFrame
 from lsl.common import stations
 from lsl.common import dp as dp_common
 
-def simulate_tbn(tbnfh, len_s, fc, f_signal, fs=100e3,  src_el=90, src_az=0, signal_amp=1, snr_dB=None, frame_size=512, gain=20, station=stations.lwasv):
+def simulate_tbn(tbnfh, len_s, fc, f_signal, fs=100e3,  src_l=0, src_m=0, signal_amp=1, snr_dB=None, frame_size=512, gain=20, station=stations.lwasv):
     '''
     Generates a simulated TBN file containing a sinusoidal source and noise.
 
@@ -47,7 +47,7 @@ def simulate_tbn(tbnfh, len_s, fc, f_signal, fs=100e3,  src_el=90, src_az=0, sig
     time_delta = int(frame_size * dp_common.fS / fs)
 
     for k, tf in enumerate(t_arr.reshape(t_arr.shape[0]//frame_size, frame_size)):
-        print(f"| Writing all frames for time index {k}/{n_frames - 1}")
+        #print(f"| Writing all frames for time index {k}/{n_frames - 1}")
         tx_signal = signal_amp * np.exp(2j*np.pi*(f_signal - fc)*tf)
 
         timestamp = start_timestamp + k * time_delta
@@ -75,7 +75,7 @@ def simulate_tbn(tbnfh, len_s, fc, f_signal, fs=100e3,  src_el=90, src_az=0, sig
             frame.data *= cbl_phase_shift
             
             # add the phase delay due to the source's position in the sky
-            src_unit_vector = np.array([np.cos(src_el) * np.sin(src_az), np.cos(src_el) * np.cos(src_az), np.sin(src_el)])
+            src_unit_vector = np.array([src_l, src_m, np.sqrt(1 - src_l**2 - src_m**2)])
             src_time_delay = np.dot(src_unit_vector, a_xyz) / 3e8
             src_phase_shift = np.exp(2j * np.pi * src_time_delay * f_signal)
             frame.data *= src_phase_shift
