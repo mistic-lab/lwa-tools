@@ -196,7 +196,7 @@ def simulate_visibilities_gen(model, model_params, freqs, antennas=stations.lwas
             v = uvw[:, 1]
             w = uvw[:, 2]
 
-            visibilities[:, k] = model(u, v, *params)
+            visibilities[:, k] = model(u, v, w, *params)
 
         yield baselines, freqs, visibilities
 

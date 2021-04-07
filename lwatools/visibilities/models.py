@@ -8,7 +8,7 @@ def point_source_visibility_model_uvw(u, v, w, l, m):
     '''
     return np.exp(2j * np.pi * ( l*u + v*m + w*np.sqrt(1-l**2-m**2) ))
 
-def point_source_visibility_model_uv(u, v, l, m):
+def point_source_visibility_model_uv(u, v, w, l, m):
     '''
     Computes visibility at u,v as if from a perfect point source located at (l,m)
     '''
@@ -42,15 +42,16 @@ def point_residual_abs(params, u, v, w, vis):
 
     return np.abs(mc - vis)
 
-def gaussian_source_visibility_model(u, v, l, m, a):
+def gaussian_source_visibility_model(u, v, w, l, m, a):
     '''
     Computes the visibility at u,v as if from a gaussian source located at (l,m)
 
     a is a (scalar) width parameter. FWHM = np.sqrt(8 np.ln(2)) * a
     '''
-    return np.exp(-2 * np.pi**2 * a**2 * (u**2 + v**2) + 2j * np.pi * (l*u + v*m))
+    n = np.sqrt(1 - l**2 - m**2)
+    return np.exp(-2 * np.pi**2 * a**2 * (u**2 + v**2) + 2j * np.pi * (l*u + v*m + n*w))
 
-def gaussian_source_noisy_visibility_model(u, v, l, m, a, sigma):
+def gaussian_source_noisy_visibility_model(u, v, w, l, m, a, sigma):
     '''
     Computes the visibility at u,v as if from a gaussian source located at (l,m).
     Gaussian noise is added to the visibilities.
@@ -60,8 +61,7 @@ def gaussian_source_noisy_visibility_model(u, v, l, m, a, sigma):
     sigma is the standard deviation of the gaussian noise added to the real and
     imag parts of the visibilities.
     '''
-
-    model = gaussian_source_visibility_model(u, v, l, m, a)
+    model = gaussian_source_visibility_model(u, v, w, l, m, a)
     noise_re = np.random.normal(0, sigma, len(model))
     noise_im = np.random.normal(0, sigma, len(model))
     return model + noise_re + 1j*noise_im
@@ -75,7 +75,7 @@ def gaussian_residual_abs(params, u, v, w, vis, a=0.5):
     '''
     l = params[0]
     m = params[1]
-    mc = gaussian_source_visibility_model(u, v, l, m, a)
+    mc = gaussian_source_visibility_model(u, v, w, l, m, a)
 
     return np.abs(mc - vis)
 
