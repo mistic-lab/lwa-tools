@@ -62,19 +62,6 @@ def get_gimg_center_of_mass(gridded_image, return_img=False, weighting='natural'
     col=int(col)
 
     #! Note the negative
-    if -col < 0:
-        warnings.warn("l index given is %f which is outside range of %r. Setting l index to 0." % (-col, str(l.shape)))
-        col=0
-    elif -col > len(l)-1:
-        warnings.warn("l index given is %f which is outside range of %r. Setting l index to -1." % (-col, str(l.shape)))
-        col=-1
-    if row < 0:
-        warnings.warn("m index given is %f which is outside range of %r. Setting m index to 0." % (row, str(m.shape)))
-        row=0
-    elif row > len(m)-1:
-        warnings.warn("m index given is %f which is outside range of %r. Setting m index to -1." % (row, str(m.shape)))
-        row=-1
-
     l = l[-col]
     m = m[row]
 

@@ -25,17 +25,12 @@ def main(args):
         print("Please specify a transmitter location")
         return
 
-    # rx_coords = [station.lat * 180/np.pi, station.lon * 180/np.pi]
-
-    print(args)
-
     print("Opening TBN file ({})".format(args.tbn_filename))
     with LWASVDataFile(args.tbn_filename, ignore_timetag_errors=True) as tbnf:
     
         antennas = station.antennas
 
         valid_ants, n_baselines = select_antennas(antennas, args.use_pol)
-        # valid_ants, n_baselines = select_antennas(antennas, args.use_pol, exclude=[256]) # to exclude outrigger
 
         if not args.hdf5_file:
             raise RuntimeError('Please provide an output filename')
@@ -45,19 +40,21 @@ def main(args):
                     args.integration_length, "imaging", "", transmitter_coords=tx_coords) as h5f:
 
                 if args.point_finding_alg == 'all' or args.point_finding_alg == 'peak':
-                    h5f['l_peak'] = h5f['l_est']
-                    h5f['m_peak'] = h5f['m_est']
-                    h5f['elevation_peak'] = h5f['l_est']
-                    h5f['azimuth_peak'] = h5f['l_est']
+                    h5f.create_dataset_like('l_peak', h5f['l_est'])
+                    h5f.create_dataset_like('m_peak', h5f['m_est'])
+                    h5f.create_dataset_like('elevation_peak', h5f['elevation'])
+                    h5f.create_dataset_like('azimuth_peak', h5f['azimuth'])
                 if args.point_finding_alg == 'all' or args.point_finding_alg == 'CoM':
-                    h5f['l_CoM'] = h5f['l_est']
-                    h5f['m_CoM'] = h5f['m_est']
-                    h5f['elevation_CoM'] = h5f['l_est']
-                    h5f['azimuth_CoM'] = h5f['l_est']
+                    h5f.create_dataset_like('l_CoM', h5f['l_est'])
+                    h5f.create_dataset_like('m_CoM', h5f['m_est'])
+                    h5f.create_dataset_like('elevation_CoM', h5f['elevation'])
+                    h5f.create_dataset_like('azimuth_CoM', h5f['azimuth'])
                 else:
                     raise NotImplementedError(f"Unrecognized point finding algorithm: {args.point_finding_alg}")
                 del h5f['l_est']
                 del h5f['m_est']
+                del h5f['elevation']
+                del h5f['azimuth']
 
 
 
@@ -68,19 +65,9 @@ def main(args):
                 if save_all_sky:
                     fig, ax = plt.subplots()
 
-                # if args.point_finding_alg == 'peak':
-                #     get_gimg = get_gimg_max
-                # elif args.point_finding_alg == 'CoM':
-                #     get_gimg = get_gimg_center_of_mass
-                # elif args.point_finding_alg == 'all':
-                #     get_gimg = [get_gimg_max, get_gimg_center_of_mass]
-                # else:
-                #     raise NotImplementedError(f"Unrecognized point finding algorithm: {args.point_finding_alg}")
-
                 for bl, freqs, vis in compute_visibilities_gen(tbnf, valid_ants, integration_length=args.integration_length, fft_length=args.fft_len, use_pol=args.use_pol, use_pfb=args.use_pfb):
 
                     gridded_image = grid_visibilities(bl, freqs, vis, args.tx_freq, station)
-
 
                     save_all_sky = (args.all_sky and k in args.all_sky) or (args.all_sky_every and k % args.all_sky_every == 0)
 
@@ -88,50 +75,31 @@ def main(args):
                         result = get_gimg_max(gridded_image, return_img=save_all_sky)
                         l = result[0]
                         m = result[1]
-
                         src_elev, src_az = lm_to_ea(l, m)
                         h5f['l_peak'][k] = l
                         h5f['m_peak'][k] = m
                         h5f['elevation_peak'][k] = src_elev
                         h5f['azimuth_peak'][k] = src_az
+
                     if args.point_finding_alg == 'all' or args.point_finding_alg == 'CoM':
                         result = get_gimg_center_of_mass(gridded_image, return_img=save_all_sky)
                         l = result[0]
                         m = result[1]
-
                         src_elev, src_az = lm_to_ea(l, m)
                         h5f['l_CoM'][k] = l
                         h5f['m_CoM'][k] = m
                         h5f['elevation_CoM'][k] = src_elev
                         h5f['azimuth_CoM'][k] = src_az
 
-
-
-                    # if args.export_npy:
-                    #     print("Exporting u, v, w, and visibility")
-                    #     np.save('uvw{}.npy'.format(k), uvw)
-                    #     np.save('vis{}.npy'.format(k), vis)
-                    #     print("Exporting gridded u, v, and visibility")
-                    #     u,v = gridded_image.get_uv()
-                    #     np.save('gridded-u{}.npy'.format(k), u)
-                    #     np.save('gridded-v{}.npy'.format(k), v)
-                    #     np.save('gridded-vis{}.npy'.format(k), gridded_image.uv)
-
                     if save_all_sky:
                         img = result[2]
                         extent = result[3]
                         ax.imshow(img, extent=extent, origin='lower', interpolation='nearest')
-                        # plot_gridded_image(ax, gridded_image)
                         plt.savefig('allsky_int_{}.png'.format(k))
-
-                    # if save_pkl_gridded:
-                    #     quickDict={'image':img, 'extent':extent}
-                    #     with open('gridded_allsky_int_{}.pkl'.format(k),'wb') as f:
-                    #         pickle.dump(quickDict, f, protocol=pickle.HIGHEST_PROTOCOL)
 
                     k += 1
                     print("\n\n")
-                    if k>=args.stop_after:
+                    if args.stop_after >= 0 and k >= args.stop_after:
                         break
                 
 
@@ -146,10 +114,10 @@ if __name__ == "__main__":
             )
     parser.add_argument('tbn_filename', type=str,
             help='name of TBN data file')
-    parser.add_argument('--hdf5-file', '-f', type=str,
-            help='name of output HDF5 file')
     parser.add_argument('tx_freq', type=float,
             help='transmitter frequency')
+    parser.add_argument('--hdf5-file', '-f', type=str,
+            help='name of output HDF5 file')
     parser.add_argument('--fft-len', type=int, default=16,
             help='Size of FFT used in correlator')
     parser.add_argument('--use-pfb', action='store_true',
@@ -162,19 +130,12 @@ if __name__ == "__main__":
             help='export all-sky plots for these integrations')
     parser.add_argument('--all-sky-every', type=int,
             help='export an all-sky plot every x integrations')
-    # parser.add_argument('--pkl-gridded', type=int, nargs='*',
-    #         help='export gridded all sky data for these integrations')
-    # parser.add_argument('--pkl-gridded-every', type=int,
-    #         help='export gridded all sky data every x integrations')
     parser.add_argument('--export-npy', action='store_true',
             help="export npy files of u, v, and visibility for each iteration - NOTE: these will take up LOTS OF SPACE if you run an entire file with this on!")
-    parser.add_argument('--stop-after', type=int, default=999999999,
+    parser.add_argument('--stop-after', type=int, default=-1,
             help='stop running after this many integrations')
     parser.add_argument('--point-finding-alg', nargs='?', default='all', choices=('peak', 'CoM', 'all'),
             help='select which algorithm is used to locate the point source in an image - options are the image peak or centre of mass')
-    # parser.add_argument('--reflection-model', nargs='?', default='flat_fixed_dist', 
-    #         choices=('flat_fixed_dist', 'tilted_fixed_dist'),
-    #         help='select which ionospheric model is used to convert DoA into virtual height - flat and tilted halfway-point mirror models are available')
             
     known_transmitters.add_args(parser)
     args = parser.parse_args()
