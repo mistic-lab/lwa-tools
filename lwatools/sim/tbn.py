@@ -74,6 +74,9 @@ def simulate_tbn(tbnfh, len_s, fc, f_signal, fs=100e3,  src_l=0, src_m=0, signal
             cbl_phase_shift = np.exp(-2j * np.pi * cbl_time_delay * f_signal)
             frame.data *= cbl_phase_shift
             
+            # pretend the array is planar
+            a_xyz[2] = 0
+
             # add the phase delay due to the source's position in the sky
             src_unit_vector = np.array([src_l, src_m, np.sqrt(1 - src_l**2 - src_m**2)])
             src_time_delay = np.dot(src_unit_vector, a_xyz) / 3e8

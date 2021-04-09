@@ -48,8 +48,7 @@ def gaussian_source_visibility_model(u, v, w, l, m, a):
 
     a is a (scalar) width parameter. FWHM = np.sqrt(8 np.ln(2)) * a
     '''
-    n = np.sqrt(1 - l**2 - m**2)
-    return np.exp(-2 * np.pi**2 * a**2 * (u**2 + v**2) + 2j * np.pi * (l*u + v*m + n*w))
+    return np.exp(-2 * np.pi**2 * a**2 * (u**2 + v**2) + 2j * np.pi * (l*u + m*v))
 
 def gaussian_source_noisy_visibility_model(u, v, w, l, m, a, sigma):
     '''
