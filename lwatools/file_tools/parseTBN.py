@@ -221,7 +221,7 @@ def extract_multiple_ants(input_file, dp_stand_ids, polarization, max_length=-1,
         return output_data[:, :max_length]
 
 
-def extract_single_ant(input_file, dp_stand_id, polarization, max_length=-1):
+def extract_single_ant(input_file, dp_stand_id, polarization, max_length=-1, file_is_lwasvdatafile=False):
     """Extract and combine all data from a single antenna into a numpy array.
 
     Parameters
@@ -241,7 +241,10 @@ def extract_single_ant(input_file, dp_stand_id, polarization, max_length=-1):
         array of size (avail frames, bandwidth)
     """
 
-    input_data = LWASVDataFile(input_file)
+    if file_is_lwasvdatafile:
+        input_data = input_file
+    else:
+        input_data = LWASVDataFile(input_file)
     output_data = []
 
     total_frames = input_data.get_remaining_frame_count()
