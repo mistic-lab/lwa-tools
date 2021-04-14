@@ -46,11 +46,14 @@ def simulate_tbn(tbnfh, len_s, fc, f_signal, fs=100e3,  src_l=0, src_m=0, signal
     # timestamps are relative to a common sample rate for some reason
     time_delta = int(frame_size * dp_common.fS / fs)
 
+    realized_snr = []
+
     for k, tf in enumerate(t_arr.reshape(t_arr.shape[0]//frame_size, frame_size)):
         #print(f"| Writing all frames for time index {k}/{n_frames - 1}")
         tx_signal = signal_amp * np.exp(2j*np.pi*(f_signal - fc)*tf)
 
         timestamp = start_timestamp + k * time_delta
+
 
         for a in station.antennas:
             stand = a.stand.id
@@ -88,12 +91,18 @@ def simulate_tbn(tbnfh, len_s, fc, f_signal, fs=100e3,  src_l=0, src_m=0, signal
                 noise = np.random.normal(0, noise_sigma, frame_size) + 1j * np.random.normal(0, noise_sigma, frame_size)
                 frame.data += noise
 
-                #noise_pwr = np.real(noise * np.conj(noise)).mean()
-                #sig_pwr = np.real(tx_signal * np.conj(tx_signal)).mean()
-                #print(f"snr: {10*np.log10(sig_pwr) - 10*np.log10(noise_pwr):.2f}dB")
+                noise_pwr = np.real(noise * np.conj(noise)).mean()
+                sig_pwr = np.real(tx_signal * np.conj(tx_signal)).mean()
+                realized_snr.append(10*np.log10(sig_pwr / noise_pwr))
+
 
             # write the frame to the file
             frame.write_raw_frame(tbnfh)
+        
+    realized_snr = np.array(realized_snr)
+    print("snr:")
+    print(f"realized: {realized_snr.mean():.2f}")
+    print(f"desired:  {snr_dB:.2f}")
     
     # seek back to the start of the file so it can be read without reopening
     tbnfh.seek(0)
