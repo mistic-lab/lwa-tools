@@ -140,7 +140,7 @@ def compute_visibilities_gen(tbn_file, ants, station=stations.lwasv, integration
 
     return
 
-def simulate_visibilities_gen(model, model_params, freqs, antennas=stations.lwasv.antennas, pol='XX'):
+def simulate_visibilities_gen(model, model_params, freqs, antennas=stations.lwasv.antennas, pol='XX', noise_sigma=None):
     '''
     Returns a generator which provides simulated visibilities according to a specified model.
 
@@ -197,6 +197,11 @@ def simulate_visibilities_gen(model, model_params, freqs, antennas=stations.lwas
             w = uvw[:, 2]
 
             visibilities[:, k] = model(u, v, w, *params)
+
+            if noise_sigma is not None:
+                noise = np.random.normal(0, noise_sigma, len(visibilities)) + 1j * np.random.normal(0, noise_sigma, len(visibilities))
+                visibilities[:, k] += noise
+
 
         yield baselines, freqs, visibilities
 
