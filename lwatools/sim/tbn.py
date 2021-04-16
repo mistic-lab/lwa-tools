@@ -98,11 +98,12 @@ def simulate_tbn(tbnfh, len_s, fc, f_signal, fs=100e3,  src_l=0, src_m=0, signal
 
             # write the frame to the file
             frame.write_raw_frame(tbnfh)
-        
-    realized_snr = np.array(realized_snr)
-    print("snr:")
-    print(f"realized: {realized_snr.mean():.2f}")
-    print(f"desired:  {snr_dB:.2f}")
+
+    if snr_dB is not None: 
+        realized_snr = np.array(realized_snr)
+        print("snr:")
+        print(f"realized: {realized_snr.mean():.2f}")
+        print(f"desired:  {snr_dB:.2f}")
     
     # seek back to the start of the file so it can be read without reopening
     tbnfh.seek(0)
