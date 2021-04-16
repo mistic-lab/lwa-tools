@@ -70,7 +70,7 @@ def get_gimg_center_of_mass(gridded_image, return_img=False, weighting='natural'
     else:
         return (l, m, img, extent)
 
-def grid_visibilities(bl, freqs, vis, tx_freq, station, size=80, res=0.5, wres=0.10, use_pol=0, jd=None):
+def grid_visibilities(bl, freqs, vis, tx_freq, station, valid_ants=None, size=80, res=0.5, wres=0.10, use_pol=0, jd=None):
     '''
     Resamples the baseline-sampled visibilities on to a regular grid. 
 
@@ -78,8 +78,7 @@ def grid_visibilities(bl, freqs, vis, tx_freq, station, size=80, res=0.5, wres=0
     bl = pairs of antenna objects representing baselines (list)
     freqs = frequency channels for which we have correlations (list)
     vis = visibility samples corresponding to the baselines (numpy array)
-    target_bin = the bin we want to use (number)
-    jd = the date - shouldn't actually be important, but VisibilityDataSet needs it (number)
+    tx_freq = the frequency of the signal we want to locate
     valid_ants = which antennas we actually want to use (list)
     station = lsl station object - usually stations.lwasv
     according to LSL docstring:
@@ -95,9 +94,9 @@ def grid_visibilities(bl, freqs, vis, tx_freq, station, size=80, res=0.5, wres=0
     # In order to do the gridding, we need to build a VisibilityDataSet using
     # lsl.imaging.data.VisibilityDataSet. We have to build a bunch of stuff to
     # pass to its constructor.
-
-    valid_ants, n_baselines = select_antennas(station.antennas, use_pol)
-
+    
+    if valid_ants is None:
+        valid_ants, n_baselines = select_antennas(station.antennas, use_pol)
 
     # we only want the bin nearest to our frequency
     target_bin = np.argmin([abs(tx_freq - f) for f in freqs])

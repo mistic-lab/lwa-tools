@@ -33,6 +33,9 @@ def drop_antennas_outside_radius(antennas, radius):
 
     filtered = [a for a in antennas if (a.stand.x**2 + a.stand.y**2) < sq_r]
 
+    # remove dups
+    filtered = list(dict.fromkeys(filtered))
+
     if not filtered:
         raise RuntimeError(f"Radius {radius}m contains no antennas")
 
@@ -65,3 +68,11 @@ def drop_visibilities_outside_radius(bl, vis, radius):
         raise RuntimeError(f"Radius {radius}m contains no antennas")
 
     return bl_filtered, vis_filtered
+
+def count_antennas_used(bl):
+    seen = {}
+    for a1, a2 in bl:
+        seen[a1] = 1
+        seen[a2] = 1
+
+    return len(seen)
