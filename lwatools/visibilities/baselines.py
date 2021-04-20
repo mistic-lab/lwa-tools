@@ -69,6 +69,27 @@ def drop_visibilities_outside_radius(bl, vis, radius):
 
     return bl_filtered, vis_filtered
 
+def drop_antennas_min_spacing(antennas, spacing):
+    sq_spacing = spacing**2
+
+    available = antennas
+    to_use = [available.pop(10)]
+    
+    while available:
+        p = available.pop(0)
+        far_enough = True
+        for a in to_use:
+            sq_dist = (a.stand.x - p.stand.x)**2 + (a.stand.y - p.stand.y)**2
+            if sq_dist < sq_spacing:
+                # p and a are too close
+                far_enough = False
+                break
+        if far_enough:
+            to_use.append(p)
+
+    return to_use
+    
+
 def drop_visibilities_min_spacing(bl, vis, spacing):
     '''
     Takes the outputs of the visibility generation functions (baseline antenna
@@ -76,29 +97,24 @@ def drop_visibilities_min_spacing(bl, vis, spacing):
     antenna that is within spacing (in meters) of another antenna removed.
     '''
 
-    sq_spacing = spacing**2
+    available = {}
+    for a,b in bl:
+        available[a] = 1
+        available[b] = 1
+    available = list(available)
 
-    antennas_to_remove = {}
-
+    to_use = drop_antennas_min_spacing(available, spacing)
+    
     bl_filtered = []
 
-    for k, (a, b) in enumerate(bl):
-        sq_separation = (a.stand.x - b.stand.x)**2 + (a.stand.y - b.stand.y)**2
+    vis_keep_idx = np.empty(len(bl), dtype=bool)
 
-        if sq_separation < sq_spacing:
-            # too close
-            antennas_to_remove[a] = True
-            antennas_to_remove[b] = True
-
-    to_keep = np.empty(len(bl), dtype=bool)
-
-    for k, (a, b) in enumerate(bl):
-        to_keep[k] = (a not in antennas_to_remove) and (b not in antennas_to_remove)
-
-        if to_keep[k]:
+    for k, (a,b) in enumerate(bl):
+        vis_keep_idx[k] = (a in to_use) and (b in to_use)
+        if vis_keep_idx[k]:
             bl_filtered.append((a,b))
 
-    vis_filtered = vis[to_keep]
+    vis_filtered = vis[vis_keep_idx]
 
     if not bl_filtered:
         raise RuntimeError(f"All antennas removed by minimum spacing {spacing}m")
