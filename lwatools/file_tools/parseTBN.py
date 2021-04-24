@@ -16,9 +16,11 @@ from datetime import datetime
 import h5py
 import math
 import pathlib
+import warnings
 
 from lsl.reader import tbn, errors
 from lsl.reader.ldp import LWASVDataFile, LWA1DataFile
+from lsl.common.dp import fS as reference_fs
 from lsl.common import stations
 
 from lwatools.utils.fft import get_frequency_bin
@@ -221,7 +223,7 @@ def extract_multiple_ants(input_file, dp_stand_ids, polarization, max_length=-1,
         return output_data[:, :max_length]
 
 
-def extract_single_ant(input_file, dp_stand_id, polarization, max_length=-1, file_is_lwasvdatafile=False):
+def extract_single_ant(input_file, dp_stand_id, polarization, max_length=-1, file_is_lwasvdatafile=False, fill_missing=False):
     """Extract and combine all data from a single antenna into a numpy array.
 
     Parameters
@@ -252,6 +254,9 @@ def extract_single_ant(input_file, dp_stand_id, polarization, max_length=-1, fil
     samps_per_frame = 512
     max_possible_length = math.ceil( total_frames / num_ants ) * samps_per_frame
 
+    expected_timetag_delta = int(samps_per_frame / input_data.get_info()['sample_rate'] * reference_fs)
+    prev_timetag = None
+
     if max_length < 0:
         max_length = max_possible_length
 
@@ -260,6 +265,7 @@ def extract_single_ant(input_file, dp_stand_id, polarization, max_length=-1, fil
     print("-| {} samples per frame".format(samps_per_frame))
     print("--| Extracting from stand {}, pol {}".format(dp_stand_id, polarization))
     print("--| Extracting {} of a possible {} samples".format(max_length, max_possible_length))
+    print("--| Expecting a timetag skip of {} between frames".format(expected_timetag_delta))
 
     # while input_data.get_remaining_frame_count() > 0:
     while len(output_data) < max_length:
@@ -268,9 +274,28 @@ def extract_single_ant(input_file, dp_stand_id, polarization, max_length=-1, fil
         except errors.EOFError:
             break
 
-        if current_frame.id == (dp_stand_id, polarization):
-            for i in range(len(current_frame.payload.data)):
-                output_data.append(current_frame.payload.data[i])
+        if current_frame.id != (dp_stand_id, polarization):
+            continue
+
+        if prev_timetag is not None:
+            if current_frame.payload.timetag != prev_timetag + expected_timetag_delta:
+                warnings.warn(f"WARNING: invalid timetag skip in sample {len(output_data) + 1}")
+                print(f"Expected {expected_timetag_delta + prev_timetag} but got {current_frame.payload.timetag}")
+                print(f"This is a difference of {current_frame.payload.timetag - prev_timetag} as opposed to the expected difference of {expected_timetag_delta}")
+                if fill_missing:
+                    timetag_diff = current_frame.payload.timetag - prev_timetag
+                    frames_dropped = int(timetag_diff / expected_timetag_delta)
+                    print(f"Filling {frames_dropped} missing frames with zeros ({samps_per_frame * frames_dropped} samples)")
+                    print(len(output_data))
+                    for i in range(samps_per_frame * frames_dropped):
+                        output_data.append(0.0)
+                    print(len(output_data))
+
+        for i in range(len(current_frame.payload.data)):
+            output_data.append(current_frame.payload.data[i])
+
+        prev_timetag = current_frame.payload.timetag
+
 
     output_data = np.array(output_data)
 
