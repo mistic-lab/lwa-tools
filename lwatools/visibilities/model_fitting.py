@@ -119,9 +119,9 @@ def main(args):
         if not args.hdf5_file:
             raise RuntimeError('Please provide an output filename')
         else:
-            with build_output_file(args.hdf5_file, tbnf, args.tx_freq, 
-                    valid_ants, n_baselines, args.fft_len, args.use_pfb, args.use_pol, 
-                    args.integration_length, opt_method, args.visibility_model, transmitter_coords=tx_coords) as h5f:
+            with build_output_file(h5_fname=args.hdf5_file, tbnf=tbnf, tx_freq=args.tx_freq, 
+                    vaild_ants=valid_ants, n_baselines=n_baselines, fft_len=args.fft_len, use_pfb=args.use_pfb, use_pol=args.use_pol, 
+                    integration_length=args.integration_length, opt_method=opt_method, vis_model=args.visibility_model, transmitter_coords=tx_coords) as h5f:
 
                 # arrays for estimated parameters from each integration
                 l_est = np.array([args.l_guess])

@@ -1,7 +1,8 @@
 import h5py
+import numpy as np
 from lsl.common import stations
 
-def build_output_file(h5_fname, tbnf, tx_freq, valid_ants, n_baselines, fft_len, use_pfb, use_pol, integration_length, opt_method, vis_model, station=stations.lwasv, transmitter_coords=None, heights=False):
+def build_output_file(h5_fname, tbnf, valid_ants, n_baselines, integration_length, use_pfb=None, use_pol=None,  tx_freq=None, fft_len=None, opt_method=None, vis_model=None, station=stations.lwasv, transmitter_coords=None, heights=False):
     '''
     Opens the hdf5 file that will be used to store results, initializes
     datasets, and writes metadata.
@@ -16,18 +17,22 @@ def build_output_file(h5_fname, tbnf, tx_freq, valid_ants, n_baselines, fft_len,
     if transmitter_coords:
         ats['transmitter_coords'] = transmitter_coords
         ats['tx_bearing'], _, ats['tx_distance'] = station.get_pointing_and_distance(transmitter_coords + [0])
-    ats['tx_freq'] = tx_freq
+    else:
+        ats['transmitter_coords'] = np.nan
+        ats['tx_bearing'] = np.nan
+        ats['tx_distance'] = np.nan
+    if tx_freq is not None: ats['tx_freq'] = tx_freq
     ats['sample_rate'] = tbnf.get_info('sample_rate')
     ats['start_time'] = str(tbnf.get_info('start_time').utc_datetime)
     ats['valid_ants'] = [a.id for a in valid_ants]
     ats['n_baselines'] = n_baselines
     ats['center_freq'] = tbnf.get_info('freq1')
-    ats['fft_len'] = fft_len
-    ats['use_pfb'] = use_pfb
-    ats['use_pol'] = use_pol
+    if fft_len is not None: ats['fft_len'] = fft_len
+    if use_pfb is not None: ats['use_pfb'] = use_pfb
+    if use_pol is not None: ats['use_pol'] = use_pol
     ats['int_length'] = integration_length
-    ats['opt_method'] = opt_method
-    ats['vis_model'] = vis_model
+    if opt_method is not None: ats['opt_method'] = opt_method
+    if vis_model is not None: ats['vis_model'] = vis_model
 
     n_samples = tbnf.get_info('nframe') / tbnf.get_info('nantenna')
     samples_per_integration = int(integration_length * tbnf.get_info('sample_rate') / 512)

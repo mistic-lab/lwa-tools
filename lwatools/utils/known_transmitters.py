@@ -34,7 +34,9 @@ def add_args(parser):
     parser.add_argument('-tn', '--transmitter-name', type=str, 
             help='name of a known transmitter')
     parser.add_argument('-k', '--known-transmitters', action='store_true',
-                        help='list known transmitter names that can be passed with -t')
+            help='list known transmitter names that can be passed with -t')
+    parser.add_argument('-u', '--unknown-transmitter', action='store_true',
+            help='transmitter is unknown')
 
 
 def parse_args(args):
@@ -52,5 +54,7 @@ def parse_args(args):
         return known_transmitter_locations[args.transmitter_name]
     elif args.transmitter_coords:
         return args.transmitter_coords
+    elif args.unknown_transmitter:
+        return False
     else:
         raise RuntimeError("No transmitter name or location provided.")

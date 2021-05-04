@@ -10,7 +10,6 @@ from lsl.reader.ldp import LWASVDataFile
 
 from lwatools.file_tools.outputs import build_output_file
 from lwatools.imaging.utils import get_gimg_max, get_gimg_center_of_mass, grid_visibilities
-from lwatools.ionospheric_models.fixed_dist_mirrors import flatmirror_height, tiltedmirror_height
 from lwatools.visibilities.generate import compute_visibilities_gen
 from lwatools.utils.array import select_antennas
 from lwatools.utils import known_transmitters
@@ -21,9 +20,6 @@ def main(args):
     station = stations.lwasv
 
     tx_coords = known_transmitters.parse_args(args)
-    if not tx_coords:
-        print("Please specify a transmitter location")
-        return
 
     print("Opening TBN file ({})".format(args.tbn_filename))
     with LWASVDataFile(args.tbn_filename, ignore_timetag_errors=True) as tbnf:
@@ -35,9 +31,9 @@ def main(args):
         if not args.hdf5_file:
             raise RuntimeError('Please provide an output filename')
         else:
-            with build_output_file(args.hdf5_file, tbnf, args.tx_freq, 
-                    valid_ants, n_baselines, args.fft_len, args.use_pfb, args.use_pol, 
-                    args.integration_length, "imaging", "", transmitter_coords=tx_coords) as h5f:
+            with build_output_file(h5_fname=args.hdf5_file, tbnf=tbnf, tx_freq=args.tx_freq, 
+                    valid_ants=valid_ants, n_baeslines=n_baselines, fft_len=args.fft_len, use_pfb=args.use_pfb, use_pol=args.use_pol, 
+                    integration_length=args.integration_length, transmitter_coords=tx_coords) as h5f:
 
                 if args.point_finding_alg == 'all' or args.point_finding_alg == 'peak':
                     h5f.create_dataset_like('l_peak', h5f['l_est'])
