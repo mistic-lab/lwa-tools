@@ -49,9 +49,9 @@ def main(args):
 				del h5f['m_est']
 
 				freq = tbnf.get_info('freq1')
-				idx = [ant.digitizer-1 for ant in antennas]
-				xyz = np.array([[ant.stand.x, ant.stand.y, ant.stand.z] for ant in antennas])
-				delays = np.array([ant.cable.delay(freq) for ant in antennas])
+				idx = [ant.digitizer-1 for ant in valid_ants]
+				xyz = np.array([[ant.stand.x, ant.stand.y, ant.stand.z] for ant in valid_ants])
+				delays = np.array([ant.cable.delay(freq) for ant in valid_ants])
 				delays -= delays.min()
 
 				n_samples = tbnf.get_info('nframe') / tbnf.get_info('nantenna')
@@ -123,8 +123,8 @@ def main(args):
 										np.cos(te)*np.cos(ta),
 										np.sin(te)])
 											
-							a = np.zeros((len(antennas),1), dtype=np.complex128)
-							for k in range(len(antennas)):
+							a = np.zeros((len(valid_ants),1), dtype=np.complex128)
+							for k in range(len(valid_ants)):
 								a[k,0] = np.exp( 2j*np.pi*freq*np.dot(xyz[k,:]-xyz[0,:], pv)/speedOfLight )
 							a = np.matrix(a)
 											
