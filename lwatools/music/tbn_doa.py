@@ -20,11 +20,9 @@ from lwatools.utils.geometry import lm_to_ea
 def main(args):
 
 	# saz and sel are used later 
-	img = aipy.img.ImgW(size=200, res=0.5)
-	top = img.get_top(center=(200,200))
+	img = aipy.img.ImgW(size=50, res=0.5)
+	top = img.get_top(center=(50,50))
 	saz,sel = aipy.coord.top2azalt(top)
-	saz *= 180/np.pi
-	sel *= 180/np.pi
 
 	station=stations.lwasv
 
@@ -60,6 +58,7 @@ def main(args):
 
 
 				for int_num in range(n_integrations):
+                                        print(f"Starting iteration {int_num + 1} of {n_integrations}")
 					# Load in the data and select what we need
 					tInt, t0, data = tbnf.read(args.integration_length)
 
@@ -76,6 +75,7 @@ def main(args):
 					# Calculate Rx - The time-averaged autocorrelation matrix
 					nSamp = data.shape[1]
 					xOutput = []
+                                        print("Computing time-averaged autocorrelation matrix")
 					for i in range(nSamp):
 						x = np.matrix( data[:,i] ).T
 						xOutput.append( x )
@@ -84,11 +84,9 @@ def main(args):
 						except:
 							Rx =  x*x.H
 					Rx /= nSamp
-					print("Signals Vectors: ", x.shape)
-					print("Autocorrelation Matrix: ", Rx.shape)
-
 
 					# Find the eigenvectors/values for Rx and order them by significance
+                                        print("Computing eigenvectors/values of the ACM")
 					w, v = np.linalg.eig(Rx)
 					order = np.argsort(np.abs(w))[::-1]
 					w = w[order]
@@ -104,18 +102,14 @@ def main(args):
 					Us = range(1)
 					Un = range(1, w.size)
 
-					print("Noise Sub-space Matrix: ", Un)
-					print("Determinate of the Autocorrelation Matrix: ", np.linalg.det(Rx))
-					print(v[:,Us].shape, v[:,Un].shape)
-
-
+                                        print("Evaluating MUSIC spectrum")
 					P = np.zeros_like(saz)
 					E = np.zeros_like(saz)
 					for i in range(saz.shape[0]):
-						print("{} of {}".format(i+1, saz.shape[0]))
+						print(f"Starting row {i+1} / {saz.shape[0]} for integration {int_num}")
 						for j in range(saz.shape[1]):
-							ta = saz[i,j]*np.pi/180
-							te = sel[i,j]*np.pi/180
+							ta = saz[i,j]
+							te = sel[i,j]
 							if not np.isfinite(ta) or not np.isfinite(te):
 								continue
 								
@@ -132,8 +126,12 @@ def main(args):
 							o = a.H*v2*v2.H*a
 							P[i,j] = 1.0/max([1e-9, o[0,0].real])
 							
-					h5f['elevation'][int_num] = sel[np.where( P == P.max() )]
-					h5f['azimuth'][int_num] = saz[np.where( P == P.max() )]
+                                        spectrum_max_idx = np.where(P == P.max())
+                                        el_max = sel[spectrum_max_idx]
+                                        az_max = saz[spectrum_max_idx]
+					h5f['elevation'][int_num] = el_max
+                                        h5f['azimuth'][int_num] = az_max
+                                        print(f"Integration complete - az = {az_max:.2f} el = {el_max:.2f}")
 
 
 if __name__ == "__main__":

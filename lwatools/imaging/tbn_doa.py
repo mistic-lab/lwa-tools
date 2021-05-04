@@ -31,9 +31,12 @@ def main(args):
         if not args.hdf5_file:
             raise RuntimeError('Please provide an output filename')
         else:
-            with build_output_file(h5_fname=args.hdf5_file, tbnf=tbnf, tx_freq=args.tx_freq, 
-                    valid_ants=valid_ants, n_baeslines=n_baselines, fft_len=args.fft_len, use_pfb=args.use_pfb, use_pol=args.use_pol, 
-                    integration_length=args.integration_length, transmitter_coords=tx_coords) as h5f:
+            with build_output_file(h5_fname=args.hdf5_file, tbnf=tbnf,
+                    valid_ants=valid_ants, n_baselines=n_baselines,
+                    tx_freq=args.tx_freq, fft_len=args.fft_len,
+                    use_pfb=args.use_pfb, use_pol=args.use_pol,
+                    integration_length=args.integration_length,
+                    transmitter_coords=tx_coords) as h5f:
 
                 if args.point_finding_alg == 'all' or args.point_finding_alg == 'peak':
                     h5f.create_dataset_like('l_peak', h5f['l_est'])
