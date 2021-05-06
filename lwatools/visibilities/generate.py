@@ -81,7 +81,7 @@ def compute_visibilities(tbn_file, ants, target_freq, station=stations.lwasv, in
     return (baseline_pairs, vis_data)
 
 
-def compute_visibilities_gen(tbn_file, ants, station=stations.lwasv, integration_length=1, fft_length=16, use_pol=0, use_pfb=False):
+def compute_visibilities_gen(tbn_file, ants, station=stations.lwasv, integration_length=1, fft_length=16, use_pol=0, use_pfb=False, include_auto=False):
     '''
     Returns a generator to integrate and correlate a TBN file. Each iteration of the generator returns the baselines and the visibilities for one integration
 
@@ -132,7 +132,7 @@ def compute_visibilities_gen(tbn_file, ants, station=stations.lwasv, integration
 
         # correlate
         baseline_pairs, freqs, visibilities = fxc.FXMaster(data, ants, LFFT=fft_length,
-                                                pfb=use_pfb, include_auto=False, verbose=True,
+                                                pfb=use_pfb, include_auto=include_auto, verbose=True,
                                                 sample_rate=sample_rate, central_freq=center_freq,
                                                 Pol=pol_string, return_baselines=True, gain_correct=True)
 
@@ -206,3 +206,34 @@ def simulate_visibilities_gen(model, model_params, freqs, antennas=stations.lwas
         yield baselines, freqs, visibilities
 
     return
+
+def build_acm(bl, vis):
+    '''
+    Builds the array covariance matrix and antenna position vector out of the
+    visibilities returned from the correlator.  NOTE: requires that
+    visibilities were generated with include_auto = True
+
+    TODO: not well-tested
+    '''
+    indices = {}
+    xyz = []
+    n_ants = 0
+    for a,b in bl:
+        if a.digitizer not in indices:
+            indices[a.digitizer] = n_ants
+            xyz.append([a.stand.x, a.stand.y, a.stand.z])
+            n_ants += 1
+        if b.digitizer not in indices:
+            indices[b.digitizer] = n_ants
+            xyz.append([b.stand.x, b.stand.y, b.stand.z])
+            n_ants += 1
+
+    acm = np.zeros((n_ants, n_ants), dtype=np.complex128)
+
+    for k in range(len(vis)):
+        a, b = bl[k]
+
+        acm[indices[a.digitizer], indices[b.digitizer]] = vis[k]
+        acm[indices[b.digitizer], indices[a.digitizer]] = vis[k]
+
+    return acm, xyz

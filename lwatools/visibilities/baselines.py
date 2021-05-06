@@ -72,7 +72,7 @@ def drop_visibilities_outside_radius(bl, vis, radius):
 def drop_antennas_min_spacing(antennas, spacing):
     sq_spacing = spacing**2
 
-    available = antennas
+    available = antennas[:]
     to_use = [available.pop(10)]
     
     while available:
