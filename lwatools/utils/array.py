@@ -2,27 +2,31 @@
 Utilities to do with the physical arrays (stations)
 """
 
-def select_antennas(antennas, use_pol, exclude=None):
+def select_antennas(antennas, use_pol, exclude=None, verbose=False):
     """
     If you wish to skip the outrigger use exclude=[256]. You can also choose to skip other antennas in this manner.
     """
-    print("\n\nFiltering for operational antennas:")
+    if verbose:
+        print("\n\nFiltering for operational antennas:")
     valid_ants = []
     for a in antennas:
         if a.pol != use_pol:
             continue
 
         if a.combined_status != 33:
-            print("| Antenna {} (stand {}, pol {}) has status {}".format(a.id, a.stand.id, a.pol, a.combined_status))
+            if verbose:
+                print("| Antenna {} (stand {}, pol {}) has status {}".format(a.id, a.stand.id, a.pol, a.combined_status))
             continue
 
         if exclude is not None and a.stand.id in exclude:
-            print("| Skipping antenna {}".format(a.stand.id))
+            if verbose:
+                print("| Skipping antenna {}".format(a.stand.id))
             continue
 
         valid_ants.append(a)
 
-    print("|=> Using {}/{} antennas\n".format(len(valid_ants), len(antennas)/2))
+        if verbose:
+            print("|=> Using {}/{} antennas\n".format(len(valid_ants), len(antennas)/2))
 
     n_baselines = len(valid_ants) * (len(valid_ants) - 1) / 2 # thanks gauss
 
