@@ -17,7 +17,6 @@ from lwatools.file_tools.outputs import build_output_file
 from lwatools.utils.geometry import lm_to_ea
 from lwatools.utils.array import select_antennas
 from lwatools.utils import known_transmitters
-from lwatools.visibilities.generate import compute_visibilities_gen
 from lwatools.visibilities.baselines import uvw_from_antenna_pairs
 from lwatools.visibilities.models import point_residual_abs, bind_gaussian_residual
 from lwatools.visibilities.model_fitting import fit_model_to_vis
@@ -27,15 +26,16 @@ opt_method = 'lm'
 
 station = stations.lwasv
 
+# gaussian fitting means we don't need a good initial guess :)
 residual_function = bind_gaussian_residual(1)
-
-# TODO: should probably read this from the TBN file, but the workers need it and they don't open the TBN
-sample_rate = 100e3
-frame_size = 512
+l_init = 0.0
+m_init = 0.0
 
 ####
 # TODO:
-# maybe pass a metadata dict to the worker before sending data
+# - maybe pass a metadata dict to the worker before sending data
+#   => frees up the MPI message tag for something other than integration number
+#   => allows parameters (e.g. target bin) to change per-iteration
 ###
 
 def main(args):
@@ -52,18 +52,25 @@ def main(args):
     # designate the last process as the supervisor/file reader
     supervisor = size - 1
 
+    # open the TBN file for reading
+    tbnf = LWASVDataFile(args.tbn_filename, ignore_timetag_errors=True)
+
     # figure out the details of the run we want to do
+    tx_coords = known_transmitters.parse_args(args)
     antennas = station.antennas
     valid_ants, n_baselines = select_antennas(antennas, args.use_pol)
     n_ants = len(valid_ants)
+
+    sample_rate = tbnf.get_info('sample_rate')
+    # some of our TBNs claim to have frame size 1024 but they are lying
+    frame_size = 512
+    tbn_center_freq = tbnf.get_info('freq1')
 
 
     # open the output HDF5 file and create datasets
     # because of the way parallelism in h5py works all processes (even ones
     # that don't write to the file) must do this
-    h5f = h5py.File('/scratch/jtst/output.h5', 'w', driver='mpio', comm=comm)
-    dset_rank = h5f.create_dataset('rank', (21,), dtype='i')
-    dset_delay = h5f.create_dataset('delay', (21,), dtype='f')
+    h5f = build_output_file(args.hdf5_file, tbnf, valid_ants, n_baselines, args.integration_length, tx_freq=args.tx_freq, fft_len=args.fft_len, use_pfb=args.use_pfb, use_pol=args.use_pol, opt_method=opt_method, vis_model='gaussian', transmitter_coords=tx_coords, mpi_comm=comm)
 
 
     if rank == supervisor:
@@ -75,14 +82,14 @@ def main(args):
         workers_alive = [True for _ in range(size - 1)]
         int_no = 0
 
-        # open the TBN file for reading
-        tbnf = LWASVDataFile(args.tbn_filename, ignore_timetag_errors=True)
         
         while True:
             if not reached_end:
                 # grab data for the next available worker
                 try:
                     duration, start_time, data = tbnf.read(args.integration_length)
+                    # only use data from valid antennas
+                    data = data[[a.digitizer - 1 for a in valid_ants], :]
                 except EOFError:
                     reached_end = True
                     print(f"supervisor: reached EOF")
@@ -105,7 +112,7 @@ def main(args):
                         break
                 # otherwise, send the data to the worker for processing
                 else:
-                    print(f"supervisor: sending data {data.shape} to worker {st.source}")
+                    print(f"supervisor: sending data for integration {int_no} to worker {st.source}")
                     # Send with a capital S is optimized to send numpy arrays
                     comm.Send(data, dest=st.source, tag=int_no)
                     int_no += 1
@@ -117,10 +124,13 @@ def main(args):
     else:
         # the worker processes run this code
         print(f"worker {rank} started")
+
+        # workers don't need access to the TBN file
+        tbnf.close()
         
         # figure out the size of the incoming data buffer
         samples_per_integration = int(args.integration_length * sample_rate / frame_size) * frame_size
-        buffer_shape = (512, samples_per_integration)
+        buffer_shape = (n_ants, samples_per_integration)
 
         while True:
             # send with a lowercase s can send any pickle-able python object
@@ -129,11 +139,11 @@ def main(args):
             comm.ssend("ready", dest=supervisor)
 
             # build a buffer to be filled with data
-            d = np.empty(buffer_shape, np.complex64)
+            data = np.empty(buffer_shape, np.complex64)
 
             # receive the data from the supervisor
             st = MPI.Status()
-            comm.Recv(d, source=supervisor, status=st)
+            comm.Recv(data, source=supervisor, status=st)
 
             int_no = st.tag
 
@@ -143,15 +153,37 @@ def main(args):
                 break
 
             # otherwise process the data we've recieved
-            print(f"worker {rank}: received data {d.shape} from supervisor, starting processing")
-            delay = np.random.rand() * 5
-            print(f"worker {rank}: processing for {delay} seconds")
-            time.sleep(delay)
+            print(f"worker {rank}: received data for integration {int_no}, starting processing")
 
-            dset_rank[int_no] = rank
-            dset_delay[int_no] = delay
+            # run the correlator
+            bl, freqs, vis = fxc.FXMaster(data, valid_ants, LFFT=args.fft_len, pfb=args.use_pfb, sample_rate=sample_rate, central_freq=tbn_center_freq, Pol='xx' if args.use_pol == 0 else 'yy', return_baselines=True, gain_correct=True)
 
-            print(f"worker {rank}: done processing")
+            # extract the frequency bin we want
+            target_bin = np.argmin([abs(args.tx_freq - f) for f in freqs])
+            vis_tbin = vis[:, target_bin]
+
+            # baselines in wavelengths
+            uvw = uvw_from_antenna_pairs(bl, wavelength=3e8/args.tx_freq)
+
+            # model fitting
+            l_out, m_out, opt_result = fit_model_to_vis(uvw, vis_tbin, residual_function, l_init, m_init, verbose=False)
+
+            # convert direction cosines to sky coords
+            src_elev, src_az = lm_to_ea(l_out, m_out)
+
+            # write data to h5 file
+            h5f['l_start'][int_no] = l_init
+            h5f['m_start'][int_no] = m_init
+            h5f['l_est'][int_no] = l_out
+            h5f['m_est'][int_no] = m_out
+            h5f['elevation'][int_no] = src_elev
+            h5f['azimuth'][int_no] = src_az
+            h5f['cost'][int_no] = opt_result['cost']
+            h5f['nfev'][int_no] = opt_result['nfev']
+            
+            print(f"worker {rank}: done processing integration {int_no}")
+
+            
 
     # back to common code for both supervisor and workers
 
@@ -182,18 +214,6 @@ if __name__ == "__main__":
             help='0 for X which is the only supported polarization')
     parser.add_argument('--integration-length', type=float, default=1,
             help='Integration length in seconds')
-    parser.add_argument('--scatter', type=int, nargs='*',
-            help='export scatter plots for these integrations - warning: each scatter plot is about 6MB')
-    parser.add_argument('--scatter-every', type=int,
-            help='export a scatter plot every x integrations')
-    parser.add_argument('--exclude', type=int, nargs='*',
-            help="don't use these integrations in parameter guessing")
-    parser.add_argument('--export-npy', action='store_true',
-            help="export npy files of u, v, and visibility for each iteration - NOTE: these will take up LOTS OF SPACE if you run an entire file with this on!")
-    #parser.add_argument('--visibility-model', default='gaussian',
-    #        choices=('point', 'gaussian', 'chained'),
-    #        help='select what kind of model is fit to the visibility data')
-            
     known_transmitters.add_args(parser)
     args = parser.parse_args()
     main(args)
