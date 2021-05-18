@@ -14,6 +14,7 @@ from lsl.correlator import uvutils
 from lsl.reader.errors import EOFError
 
 from lwatools.file_tools.outputs import build_output_file
+from lwatools.file_tools.parseTBN import compute_number_of_integrations
 from lwatools.utils.geometry import lm_to_ea
 from lwatools.utils.array import select_antennas
 from lwatools.utils import known_transmitters
@@ -51,6 +52,7 @@ def main(args):
     antennas = station.antennas
     valid_ants, n_baselines = select_antennas(antennas, args.use_pol)
     n_ants = len(valid_ants)
+    total_integrations = compute_number_of_integrations(tbnf, args.integration_length)
 
     sample_rate = tbnf.get_info('sample_rate')
     # some of our TBNs claim to have frame size 1024 but they are lying
@@ -102,6 +104,9 @@ def main(args):
                 except EOFError:
                     reached_end = True
                     print(f"supervisor: reached EOF")
+                if int_no >= total_integrations:
+                    print(f"supervisor: this is the last integration")
+                    reached_end = True
 
             # get the next "ready" message from the workers
             st = MPI.Status()
@@ -212,8 +217,32 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
             description="compute all-sky images and fit a model to them",
-            formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-            fromfile_prefix_chars='@'
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+            fromfile_prefix_chars='@',
+            epilog='''
+This is a version of the imaging DoA estimation script
+that uses MPI to run in parallel on a computer cluster.
+
+To run this script on Compute Canada's slurm-based systems, create
+an sbatch script. Select the number of MPI processes you want to
+create using --ntasks=<number of processes>. Set the number of CPUs
+per process using --cpus-per-task=<cpus/process>. In the sbatch
+script, execute this python script using `srun python -m
+lwatools.imaging.parallel_tbn_doa <args>`.
+
+Alternatively, if you're working with a shell on the distributed
+system already, such as if you've salloc'd some resources, you can
+use `mpirun -n <number of processes> python -m
+lwatools.imaging.parallel_tbn_doa <args>` to run this script.
+
+This script's dependencies can be obtained on a Compute Canada
+system by loading the following modules:
+    - openmpi
+    - mpi4py
+    - hdf5-mpi
+
+For more information on running MPI jobs on Compute Canada's clusters, see
+https://docs.computecanada.ca/wiki/Advanced_MPI_scheduling'''
             )
     parser.add_argument('tbn_filename', type=str,
             help='name of TBN data file')
