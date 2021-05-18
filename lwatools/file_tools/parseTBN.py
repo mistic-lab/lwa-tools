@@ -25,7 +25,7 @@ from lsl.common import stations
 
 from lwatools.utils.fft import get_frequency_bin
 
-__all__=['meta_to_txt', 'make_sample_tbn', 'extract_single_ant', 'pull_meta']
+__all__=['meta_to_txt', 'make_sample_tbn', 'extract_single_ant', 'pull_meta', 'compute_number_of_integrations']
 
 def generate_multiple_ants(input_file, dp_stand_ids, polarization, chunk_length=2**20, max_length=-1, truncate=True):
     """Generate chunks of data from a list of antennas.
@@ -729,3 +729,16 @@ def extract_single_ant_from_middle(input_file, dp_stand_id, polarization, max_le
     output_data = np.array(output_data)
 
     return output_data
+
+
+def compute_number_of_integrations(tbnf, int_length_seconds):
+    '''
+    Given a TBN file and an integration length, this function returns the
+    number of integrations in the file.
+    '''
+
+    n_samples = tbnf.get_info('nframe') / tbnf.get_info('nantenna') * 512
+    frames_per_integration = (int_length_seconds * tbnf.get_info('sample_rate')) // 512
+    samples_per_integration = frames_per_integration * 512
+    n_integrations = int(n_samples / samples_per_integration) + 1
+    return n_integrations

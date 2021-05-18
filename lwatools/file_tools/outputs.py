@@ -2,14 +2,21 @@ import h5py
 import numpy as np
 from lsl.common import stations
 
-def build_output_file(h5_fname, tbnf, valid_ants, n_baselines, integration_length, use_pfb=None, use_pol=None,  tx_freq=None, fft_len=None, opt_method=None, vis_model=None, station=stations.lwasv, transmitter_coords=None, heights=False):
+from lwatools.file_tools.parseTBN import compute_number_of_integrations
+
+def build_output_file(h5_fname, tbnf, valid_ants, n_baselines, integration_length, use_pfb=None, use_pol=None,  tx_freq=None, fft_len=None, opt_method=None, vis_model=None, station=stations.lwasv, transmitter_coords=None, heights=False, mpi_comm=None, verbose=False):
     '''
     Opens the hdf5 file that will be used to store results, initializes
     datasets, and writes metadata.
     '''
 
-    print("Writing output to {}".format(h5_fname))
-    h5f = h5py.File(h5_fname, 'w')
+    if verbose:
+        print("Writing output to {}".format(h5_fname))
+
+    if mpi_comm is None:
+        h5f = h5py.File(h5_fname, 'w')
+    else:
+        h5f = h5py.File(h5_fname, 'w', driver='mpio', comm=mpi_comm)
 
     # write metadata to attributes
     ats = h5f.attrs
@@ -34,9 +41,8 @@ def build_output_file(h5_fname, tbnf, valid_ants, n_baselines, integration_lengt
     if opt_method is not None: ats['opt_method'] = opt_method
     if vis_model is not None: ats['vis_model'] = vis_model
 
-    n_samples = tbnf.get_info('nframe') / tbnf.get_info('nantenna')
-    samples_per_integration = int(integration_length * tbnf.get_info('sample_rate') / 512)
-    n_integrations = n_samples / samples_per_integration
+    n_integrations = compute_number_of_integrations(tbnf, integration_length)
+
     h5f.create_dataset('l_start', (n_integrations,))
     h5f.create_dataset('m_start', (n_integrations,))
     h5f.create_dataset('l_est', (n_integrations,))
