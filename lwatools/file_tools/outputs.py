@@ -2,7 +2,7 @@ import h5py
 import numpy as np
 from lsl.common import stations
 
-from lwatools.file_tools.h5Utils import compute_number_of_integrations
+from lwatools.file_tools.parseTBN import compute_number_of_integrations
 
 def build_output_file(h5_fname, tbnf, valid_ants, n_baselines, integration_length, use_pfb=None, use_pol=None,  tx_freq=None, fft_len=None, opt_method=None, vis_model=None, station=stations.lwasv, transmitter_coords=None, heights=False, mpi_comm=None, verbose=False):
     '''

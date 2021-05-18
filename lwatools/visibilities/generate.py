@@ -12,7 +12,7 @@ from lsl.common import stations
 from lsl.correlator import uvutils
 
 from lwatools.visibilities.baselines import uvw_from_antenna_pairs
-from lwatools.file_tools.h5Utils import compute_number_of_integrations
+from lwatools.file_tools.parseTBN import compute_number_of_integrations
 
 def extract_tbn_metadata(data_file, antennas, integration_length):
     sample_rate = data_file.get_info('sample_rate')
