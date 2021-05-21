@@ -135,7 +135,7 @@ def main(args):
         tbnf.close()
         
         # figure out the size of the incoming data buffer
-        samples_per_integration = int(args.integration_length * sample_rate / frame_size) * frame_size
+        samples_per_integration = int(round(args.integration_length * sample_rate / frame_size)) * frame_size
         buffer_shape = (n_ants, samples_per_integration)
 
         while True:
