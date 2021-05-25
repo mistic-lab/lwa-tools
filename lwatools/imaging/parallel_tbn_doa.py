@@ -118,7 +118,7 @@ def main(args):
                 # an empty array indicates that the worker should exit
                 if reached_end:
                     print(f"supervisor: sending exit message to worker {st.source}")
-                    comm.Send(np.array([]), dest=st.source)
+                    comm.Send(np.array([]), dest=st.source, tag=int_no)
                     workers_alive[st.source] = False
 
                     if not any(workers_alive):
@@ -210,7 +210,7 @@ def main(args):
             
 
     # back to common code for both supervisor and workers
-
+    h5f.attrs['total_integrations'] = int_no
     h5f.close()
 
 
