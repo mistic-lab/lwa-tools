@@ -2,7 +2,7 @@ import h5py
 import numpy as np
 from lsl.common import stations
 
-from lwatools.file_tools.parseTBN import compute_number_of_integrations
+from lwatools.file_tools.parseTBN import compute_integration_numbers
 
 def build_output_file(h5_fname, tbnf, valid_ants, n_baselines, integration_length, use_pfb=None, use_pol=None,  tx_freq=None, fft_len=None, opt_method=None, vis_model=None, station=stations.lwasv, transmitter_coords=None, heights=False, mpi_comm=None, verbose=False):
     '''
@@ -37,11 +37,12 @@ def build_output_file(h5_fname, tbnf, valid_ants, n_baselines, integration_lengt
     if fft_len is not None: ats['fft_len'] = fft_len
     if use_pfb is not None: ats['use_pfb'] = use_pfb
     if use_pol is not None: ats['use_pol'] = use_pol
-    ats['int_length'] = integration_length
     if opt_method is not None: ats['opt_method'] = opt_method
     if vis_model is not None: ats['vis_model'] = vis_model
 
-    n_integrations = compute_number_of_integrations(tbnf, integration_length)
+    n_integrations, duration = compute_integration_numbers(tbnf, integration_length)
+    ats['int_length'] = duration
+    ats['requested_int_length'] = integration_length
 
     h5f.create_dataset('l_start', (n_integrations,))
     h5f.create_dataset('m_start', (n_integrations,))

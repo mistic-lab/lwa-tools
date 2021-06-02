@@ -4,6 +4,7 @@ import argparse
 import numpy as np
 import time
 import h5py
+import matplotlib.pyplot as plt
 
 from mpi4py import MPI
 
@@ -14,7 +15,7 @@ from lsl.correlator import uvutils
 from lsl.reader.errors import EOFError
 
 from lwatools.file_tools.outputs import build_output_file
-from lwatools.file_tools.parseTBN import compute_number_of_integrations
+from lwatools.file_tools.parseTBN import compute_integration_numbers
 from lwatools.utils.geometry import lm_to_ea
 from lwatools.utils.array import select_antennas
 from lwatools.utils import known_transmitters
@@ -52,7 +53,7 @@ def main(args):
     antennas = station.antennas
     valid_ants, n_baselines = select_antennas(antennas, args.use_pol)
     n_ants = len(valid_ants)
-    total_integrations = compute_number_of_integrations(tbnf, args.integration_length)
+    total_integrations, _ = compute_integration_numbers(tbnf, args.integration_length)
 
     sample_rate = tbnf.get_info('sample_rate')
     # some of our TBNs claim to have frame size 1024 but they are lying
@@ -201,6 +202,7 @@ def main(args):
             if save_all_sky:
                 img = result[2]
                 extent = result[3]
+                fig, ax = plt.subplots()
                 ax.imshow(img, extent=extent, origin='lower', interpolation='nearest')
                 plt.savefig('allsky_int_{}.png'.format(int_no))
 

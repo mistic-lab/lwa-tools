@@ -62,8 +62,12 @@ def get_gimg_center_of_mass(gridded_image, return_img=False, weighting='natural'
     col=int(col)
 
     #! Note the negative
-    l = l[-col]
-    m = m[row]
+    try:
+        l = l[-col]
+        m = m[row]
+    except IndexError:
+        l = np.nan
+        m = np.nan
 
     if return_img==False:
         return (l, m)

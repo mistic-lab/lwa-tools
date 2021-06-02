@@ -14,7 +14,7 @@ from lsl.correlator import uvutils
 from lsl.reader.errors import EOFError
 
 from lwatools.file_tools.outputs import build_output_file
-from lwatools.file_tools.parseTBN import compute_number_of_integrations
+from lwatools.file_tools.parseTBN import compute_integration_numbers
 from lwatools.utils.geometry import lm_to_ea
 from lwatools.utils.array import select_antennas
 from lwatools.utils import known_transmitters
@@ -67,7 +67,7 @@ def main(args):
     frame_size = 512
     tbn_center_freq = tbnf.get_info('freq1')
 
-    total_integrations = compute_number_of_integrations(tbnf, args.integration_length)
+    total_integrations, _ = compute_integration_numbers(tbnf, args.integration_length)
 
     # open the output HDF5 file and create datasets
     # because of the way parallelism in h5py works all processes (even ones
