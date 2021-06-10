@@ -18,6 +18,7 @@ from lwatools.file_tools.parseTBN import compute_integration_numbers
 from lwatools.utils.geometry import lm_to_ea
 from lwatools.utils.array import select_antennas
 from lwatools.utils import known_transmitters
+from lwatools.utils.bin_power import estimate_snr
 from lwatools.visibilities.baselines import uvw_from_antenna_pairs
 from lwatools.visibilities.models import point_residual_abs, bind_gaussian_residual
 from lwatools.visibilities.model_fitting import fit_model_to_vis
@@ -118,7 +119,7 @@ def main(args):
                         break
                 # otherwise, send the data to the worker for processing
                 else:
-                    print(f"supervisor: sending data for integration {int_no} to worker {st.source}")
+                    print(f"supervisor: sending data for integration {int_no}/{total_integrations} to worker {st.source}")
                     # Send with a capital S is optimized to send numpy arrays
                     comm.Send(data, dest=st.source, tag=int_no)
                     int_no += 1
@@ -186,6 +187,11 @@ def main(args):
             h5f['azimuth'][int_no] = src_az
             h5f['cost'][int_no] = opt_result['cost']
             h5f['nfev'][int_no] = opt_result['nfev']
+
+            # compute the bin power and save it to the file
+            # arbitrarily picking the tenth antenna in this list
+            power_calc_data = data[10, :]
+            h5f['snr_est'][int_no] = estimate_snr(power_calc_data, args.fft_len, args.tx_freq, sample_rate, tbn_center_freq)
             
             print(f"worker {rank}: done processing integration {int_no}")
 

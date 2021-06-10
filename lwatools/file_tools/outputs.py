@@ -55,5 +55,6 @@ def build_output_file(h5_fname, tbnf, valid_ants, n_baselines, integration_lengt
     h5f.create_dataset('cost', (n_integrations,))
     h5f.create_dataset('nfev', (n_integrations,))
     h5f.create_dataset('skipped', (n_integrations,), dtype='bool')
+    h5f.create_dataset('snr_est', (n_integrations,))
 
     return h5f
