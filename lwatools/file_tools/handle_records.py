@@ -91,22 +91,16 @@ class RecordSet():
 
         obs_dict = defaultdict() # handles keyerrors
         
-        if tbn_path.startswith('./'):
-            raise ValueError("Relative paths are not allowed")
-        tbnp = Path(tbn_path)
+        tbnp = Path(tbn_path).resolve()
         tbn_fname = tbnp.name
         tbn_basepath = str(tbnp.parent) + '/'
 
-        if sdf_path.startswith('./'):
-            raise ValueError("Relative paths are not allowed")
-        sdfp = Path(sdf_path)
+        sdfp = Path(sdf_path).resolve()
         sdf_fname = sdfp.name
         sdf_basepath = str(sdfp.parent) + '/'
 
         if tarball_path is not None:
-            if tarball_path.startswith('./'):
-                raise ValueError("Relative paths are not allowed")
-            tarp = Path(tarball_path)
+            tarp = Path(tarball_path).resolve()
             tar_fname = tarp.name
             tar_basepath = str(tarp.parent) + '/'
         else:
@@ -131,7 +125,7 @@ class RecordSet():
             LWADF = LWA1DataFile
             station_obj = stations.lwa1
 
-        with LWASVDataFile(tbn_path) as tbnf:
+        with LWADF(tbn_path) as tbnf:
             # get start time
             start_time = pd.to_datetime(tbnf.get_info('start_time').utc_datetime)
             obs_dict['start'] = start_time
