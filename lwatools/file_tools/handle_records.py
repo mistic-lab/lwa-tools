@@ -113,7 +113,6 @@ class RecordSet():
             'tarball_fname': tar_fname, 'tarball_basepath': tar_basepath,
             'tx_type': tx_type,
             'station':station, 'notes': notes,
-            'tx_fc': tx_fc,
             'known_transmitter': known_transmitter,
             'corrupted': corrupted}
 
@@ -156,6 +155,8 @@ class RecordSet():
         
         if tx_type == 'tone' and tx_fc is None:
             raise ValueError ('Observation cannot be an unknown tone.')
+
+        obs_dict['tx_fc'] = tx_fc
         
         for key, value in obs_dict.items():
             print(f"{key}: {value} (dtype: {type(value)})")
@@ -166,3 +167,11 @@ class RecordSet():
         # add it to the dataframe
         self.df = self.df.append(obs_dict, ignore_index=True)
         print()
+
+    def __str__(self):
+        loaded_str = f" loaded from {self.loaded_filename}" if self.loaded_filename else ""
+        saved_str = f" saved from {self.saved_filename}" if self.saved_filename else ""
+        return f"RecordSet object with {len(self.df)} records{loaded_str}{saved_str}"
+
+    def __repr__(self):
+        return str(self)
