@@ -13,7 +13,7 @@ warnings.formatwarning = warning_on_one_line
 
 from lsl.reader.ldp import LWASVDataFile, LWA1DataFile
 from lsl.common import stations
-from lwatools.utils.known_transmitters import known_transmitter_locations
+from lwatools.utils.known_transmitters import transmitter_is_known
 
 
 
@@ -86,7 +86,7 @@ class RecordSet():
         """
 
 
-        if tx_type == 'tone' and known_transmitter not in known_transmitter_locations.keys():
+        if tx_type == 'tone' and transmitter_is_known(known_transmitter):
             raise ValueError(f"Unrecognized transmitter name {known_transmitter}. See utils/known_transmitters.py.")
 
         obs_dict = defaultdict() # handles keyerrors
