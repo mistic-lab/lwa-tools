@@ -1,3 +1,7 @@
+'''
+Utilities for direction-finding using the imaging features of LSL. 
+'''
+
 import numpy as np
 import warnings
 from scipy.ndimage import center_of_mass

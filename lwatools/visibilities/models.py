@@ -1,5 +1,7 @@
-#!/usr/bin/python3
-
+'''
+Contains several visibility models and residual functions to be used in model
+fitting.
+'''
 import numpy as np
 
 def point_source_visibility_model_uvw(u, v, w, l, m):

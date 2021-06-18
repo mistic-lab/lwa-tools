@@ -1,4 +1,7 @@
 #!/usr/bin/python3
+'''
+run this script with -h for help
+'''
 
 import argparse
 import numpy as np

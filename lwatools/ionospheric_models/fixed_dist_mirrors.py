@@ -1,3 +1,9 @@
+'''
+This module contains implementations of several simple ionospheric reflection
+models. They can be applied to HDF5 files output by the DoA estimation scripts
+using apply_models.py.
+'''
+
 import numpy as np
 from geographiclib.geodesic import Geodesic
 

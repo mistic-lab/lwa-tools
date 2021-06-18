@@ -123,6 +123,9 @@ def drop_visibilities_min_spacing(bl, vis, spacing):
 
 
 def count_antennas_used(bl):
+    '''
+    Counts the number of antennas present in a set of baseline pairs.
+    '''
     seen = {}
     for a1, a2 in bl:
         seen[a1] = 1
