@@ -1,11 +1,10 @@
 from typing import List, Optional, Union, Literal
 import pandas as pd
 from pathlib import Path
-from glob import glob
 import os
 from collections import defaultdict
-import math
 import warnings
+from dotenv import dotenv_values
 
 def warning_on_one_line(message, category, filename, lineno, file=None, line=None):
     return '%s:%s: %s: %s\n' % (filename, lineno, category.__name__, message)
@@ -43,6 +42,9 @@ class RecordSet():
     """ Handles the entire set of records """
     def __init__(self, recordset_fname:Optional[str]=None)->None:
 
+        self.saved_filename = None
+        self.loaded_filename = None
+
         if recordset_fname is not None:
             try:
                 self.load(recordset_fname)
@@ -50,12 +52,17 @@ class RecordSet():
             except FileNotFoundError:
                 self.loaded_filename = recordset_fname
                 self.df = pd.DataFrame(columns=COLUMNS)
-                print(f'Creating dataframe and storing desired output filename as {recordset_fname}')
+                print(f'{recordset_fname} not found - initializing empty RecordSet with that name')
         else:
-            self.df = pd.DataFrame(columns=COLUMNS)
-            self.loaded_filename = None
+            environment_filename = str(Path(__file__).resolve().parent.parent) + '/.env'
+            environment = dotenv_values(environment_filename)
+            try:
+                env_recordset_fname = environment['OBSERVATION_RECORDSET_FILE']
+            except KeyError:
+                raise ValueError(f"Env file {environment_filename} does not contain OBSERVATION_RECORDSET_FILE. Please either create {environment_filename} or add this variable")
+            self.load(env_recordset_fname)
+            print(f'Loaded existing record set from {env_recordset_fname}')
 
-        self.saved_filename = None
 
     def load(self, recordset_fname:str)->None:
         self.df = pd.read_csv(filepath_or_buffer=recordset_fname, sep=',', header=0, names=COLUMNS)
@@ -175,3 +182,23 @@ class RecordSet():
 
     def __repr__(self):
         return str(self)
+
+    def print_observation(self, startIndex:int=-1, num:Optional[int]=None)->None:
+        """
+        Prints (prettily and exhaustively) the contents of rows in the dataframe
+        Parameters:
+            startIndex: int (default: -1)
+                The index of the observation to print.
+            num: int (default: None)
+                The number of observations to print. If left as default will
+                print until the end of the dataframe.
+        Returns:
+            None
+        """
+        if num is None:
+            d = self.df[startIndex:].to_dict('records')
+        else:
+            d = self.df[startIndex:startIndex+num].to_dict('records')
+            for key, val in obs.items():
+                print(f" {key}: {val}")
+            print()
