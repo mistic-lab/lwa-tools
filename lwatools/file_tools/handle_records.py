@@ -183,11 +183,11 @@ class RecordSet():
     def __repr__(self):
         return str(self)
 
-    def print_observation(self, startIndex:int=-1, num:Optional[int]=None)->None:
+    def print(self, startIndex:int=0, num:Optional[int]=None)->None:
         """
-        Prints (prettily and exhaustively) the contents of rows in the dataframe
+        Prints (prettily and exhaustively) the contents of the dataframe
         Parameters:
-            startIndex: int (default: -1)
+            startIndex: int (default: 0)
                 The index of the observation to print.
             num: int (default: None)
                 The number of observations to print. If left as default will
@@ -199,6 +199,8 @@ class RecordSet():
             d = self.df[startIndex:].to_dict('records')
         else:
             d = self.df[startIndex:startIndex+num].to_dict('records')
+
+        for obs in d:
             for key, val in obs.items():
                 print(f" {key}: {val}")
             print()
