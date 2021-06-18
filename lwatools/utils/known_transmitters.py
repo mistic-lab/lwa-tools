@@ -109,7 +109,7 @@ def parse_args(args, known_transmitter_filename:Optional[str]=None) -> Optional[
         return None
 
     if args.transmitter_coords:
-        tx_lat, tx_lon = transmitter_coords
+        tx_lat, tx_lon = args.transmitter_coords
         return tx_lat, tx_lon
     
     tx_list = TransmitterList(known_transmitter_filename)
