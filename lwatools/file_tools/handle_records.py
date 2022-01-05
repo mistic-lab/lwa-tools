@@ -131,7 +131,7 @@ class RecordSet():
             LWADF = LWA1DataFile
             station_obj = stations.lwa1
 
-        with LWADF(tbn_path) as tbnf:
+        with LWADF(filename=tbn_path) as tbnf:
             # get start time
             start_time = pd.to_datetime(tbnf.get_info('start_time').utc_datetime)
             obs_dict['start'] = start_time
