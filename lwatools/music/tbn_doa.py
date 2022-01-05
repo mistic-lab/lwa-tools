@@ -1,4 +1,7 @@
 #!/usr/bin/python3
+'''
+Uses the MUSIC algorithm to estimate direction of arrival from LWA TBN files.
+'''
 
 import argparse
 import aipy

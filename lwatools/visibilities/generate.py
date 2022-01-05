@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 ''' 
-This script uses the LSL FX correlator to generate visibilities that can be
+This code uses the LSL FX correlator to generate visibilities that can be
 used for synthesis imaging.  
 '''
 import numpy as np

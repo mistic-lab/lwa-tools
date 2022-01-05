@@ -1,3 +1,7 @@
+'''
+Utilities for the spatial MUSIC algorithm. This was implemented primarily as a
+comparison for the visibility-modelling DoA estimation methods. It's quite slow.
+'''
 import numpy as np
 import aipy
 

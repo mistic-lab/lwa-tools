@@ -1,3 +1,8 @@
+'''
+This is essentially a Python reimplementation of the LSL gridder. You should
+probably use the original implementation as it's much faster and better tested.
+'''
+
 import numpy as np
 
 def gauss_kernel_1d(extent, res=0.5, alpha=2):
