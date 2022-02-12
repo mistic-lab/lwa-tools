@@ -14,23 +14,24 @@ from lsl.correlator import uvutils
 from lwatools.visibilities.baselines import uvw_from_antenna_pairs
 from lwatools.file_tools.parseTBN import compute_integration_numbers
 
-def extract_tbn_metadata(data_file, antennas, integration_length):
+def extract_tbn_metadata(data_file, antennas, integration_length, verbose=False):
     sample_rate = data_file.get_info('sample_rate')
-    print("| Sample rate: {}".format(sample_rate))
     center_freq = data_file.get_info('freq1')
-    print("| Center frequency: {}".format(center_freq))
-
     n_samples = data_file.get_info('nframe') / len(antennas)
-    print("| Samples in file: {}".format(n_samples))
     samples_per_integration = int(integration_length * sample_rate / 512)
-    print("| Samples per integration: {}".format(samples_per_integration))
     n_integrations, _ = compute_integration_numbers(data_file, integration_length)
-    print("| Integrations in file: {}".format(n_integrations))
+
+    if verbose:
+        print("| Sample rate: {}".format(sample_rate))
+        print("| Center frequency: {}".format(center_freq))
+        print("| Samples in file: {}".format(n_samples))
+        print("| Samples per integration: {}".format(samples_per_integration))
+        print("| Integrations in file: {}".format(n_integrations))
 
     return (sample_rate, center_freq, n_samples, samples_per_integration, n_integrations)
 
 
-def compute_visibilities(tbn_file, ants, target_freq, station=stations.lwasv, integration_length=1, fft_length=16, use_pol=0, use_pfb=False):
+def compute_visibilities(tbn_file, ants, target_freq, station=stations.lwasv, integration_length=1, fft_length=16, use_pol=0, use_pfb=False, verbose=False):
     '''
     Integrates and correlates a TBN file to create an array of visibilities.
 
@@ -42,28 +43,30 @@ def compute_visibilities(tbn_file, ants, target_freq, station=stations.lwasv, in
         - fft_length: length of the FFT used in the FX correlator (default: 16)
         - use_pol: currently only supports 0 (X polarization) and 1 (Y polarization) (default: 0)
         - use_pfb: configures the method that the FX correlator uses  (default: False)
+        - verbose: whether to display info level logs (default: False)
     Returns:
         (baseline_pairs, visibilities)
         baseline_pairs is a list of pairs of antenna objects indicating which visibility is from where.
         visibilities is a numpy array of visibility vectors, one for each integration. Visibilities within the vectors correspond to the antenna pairs in baselines.
 
     '''
-    print("Extracting visibilities")
-    print("| Station: {}".format(station))
+    if verbose:
+        print("Extracting visibilities")
+        print("| Station: {}".format(station))
 
-    sample_rate, center_freq, n_samples, samples_per_integration, n_integrations = extract_tbn_metadata(tbn_file, station.antennas, integration_length)
+    sample_rate, center_freq, n_samples, samples_per_integration, n_integrations = extract_tbn_metadata(tbn_file, station.antennas, integration_length, verbose=verbose)
 
     #sometimes strings are used to indicate polarizations
     pol_string = 'xx' if use_pol == 0 else 'yy'
 
     n_baselines = len(ants) * (len(ants) - 1) / 2 # thanks gauss
 
-    print("\nComputing Visibilities:")
+    if verbose: print("\nComputing Visibilities:")
 
     vis_data = np.zeros((n_integrations, n_baselines, fft_length), dtype=complex)
 
     for i in range(0, n_integrations):
-        print("| Integration {}/{}".format(i, n_integrations-1))
+        if verbose: print("| Integration {}/{}".format(i, n_integrations-1))
         #get one integration length of data
         duration, start_time, data = tbn_file.read(integration_length)
 
@@ -82,7 +85,7 @@ def compute_visibilities(tbn_file, ants, target_freq, station=stations.lwasv, in
     return (baseline_pairs, vis_data)
 
 
-def compute_visibilities_gen(tbn_file, ants, station=stations.lwasv, integration_length=1, fft_length=16, use_pol=0, use_pfb=False, include_auto=False):
+def compute_visibilities_gen(tbn_file, ants, station=stations.lwasv, integration_length=1, fft_length=16, use_pol=0, use_pfb=False, include_auto=False, verbose=False):
     '''
     Returns a generator to integrate and correlate a TBN file. Each iteration of the generator returns the baselines and the visibilities for one integration
 
@@ -94,6 +97,7 @@ def compute_visibilities_gen(tbn_file, ants, station=stations.lwasv, integration
         - fft_length: length of the FFT used in the FX correlator (default: 16)
         - use_pol: currently only supports 0 (X polarization) and 1 (Y polarization) (default: 0)
         - use_pfb: configures the method that the FX correlator uses  (default: False)
+        - verbose: whether to print info level logs (default: False)
     Returns:
         A generator that yields (baseline_pairs, freqs, visibilities).
         baseline_pairs is a list of pairs of antenna objects indicating which
@@ -103,21 +107,22 @@ def compute_visibilities_gen(tbn_file, ants, station=stations.lwasv, integration
         the antenna pairs in baselines for each frequency bin.
     '''
 
-    print('Generating visibilities')
-    print('| Station: {}'.format(station))
+    if verbose:
+        print('Generating visibilities')
+        print('| Station: {}'.format(station))
     antennas = station.antennas
 
-    sample_rate, center_freq, n_samples, samples_per_integration, n_integrations = extract_tbn_metadata(tbn_file, antennas, integration_length)
+    sample_rate, center_freq, n_samples, samples_per_integration, n_integrations = extract_tbn_metadata(tbn_file, antennas, integration_length, verbose=verbose)
 
     #sometimes strings are used to indicate polarizations
     pol_string = 'xx' if use_pol == 0 else 'yy'
 
     # n_baselines = len(ants) * (len(ants) - 1) / 2
 
-    print("\nComputing Visibilities:")
+    if verbose: print("\nComputing Visibilities:")
 
     for i in range(0, n_integrations):
-        print("| Integration {}/{}".format(i, n_integrations-1))
+        if verbose: print("| Integration {}/{}".format(i, n_integrations-1))
         # get one integration length of data
         try:
             duration, start_time, data = tbn_file.read(integration_length)

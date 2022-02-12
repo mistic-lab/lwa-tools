@@ -1,4 +1,5 @@
 import numpy as np
+import random
 
 def uvw_from_antenna_pairs(bl, wavelength=None):
     '''
@@ -69,10 +70,12 @@ def drop_visibilities_outside_radius(bl, vis, radius):
 
     return bl_filtered, vis_filtered
 
-def drop_antennas_min_spacing(antennas, spacing):
+def drop_antennas_min_spacing(antennas, spacing, randomize=False):
     sq_spacing = spacing**2
 
     available = antennas[:]
+    if randomize:
+        random.shuffle(available)
     to_use = [available.pop(10)]
     
     while available:
